@@ -113,11 +113,17 @@ const API_BASE_URL = process.env.VITE_API_URL || '/api'
 2. **Configure as variáveis de ambiente**:
 ```env
 VITE_API_URL=https://api.clause.com
+VITE_USE_MSW=false
 ```
 
 3. **Implemente a autenticação**:
    - Configure o token JWT no header Authorization
    - Implemente refresh token se necessário
+
+4. **Habilitar/Desabilitar Mocks (MSW)**:
+   - `VITE_USE_MSW=true` para usar API mockada (recomendado para desenvolvimento rápido)
+   - `VITE_USE_MSW=false` para usar backend real
+   - O app carrega o MSW dinamicamente baseado nesta flag
 
 ### Estrutura de Dados
 

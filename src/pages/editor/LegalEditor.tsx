@@ -20,7 +20,8 @@ import { TemplatesModal } from '@/components/editor/TemplatesModal'
 import { RecentLawsModal } from '@/components/editor/RecentLawsModal'
 import { StatisticsModal } from '@/components/editor/StatisticsModal'
 import { useClient } from '@/hooks/useClients'
-import type { Process, Contract } from '@/types'
+import type { Process, Contract, EditorSuggestion } from '@/types'
+import { aiEngine } from '@/services/aiEngine'
 import { ensureClientFolder, saveClientFile, listClientFolders, type StoredFolder } from '@/services/storageService'
 import { uploadToPJE } from '@/services/pjeService'
 import { TranscriptionModal } from '@/components/editor/TranscriptionModal'
@@ -30,7 +31,20 @@ export function LegalEditor() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const [content, setContent] = useState('')
-  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [suggestions, setSuggestions] = useState<EditorSuggestion[]>([])
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([])
+  const availableTopics = [
+    'prazo',
+    'pagamento',
+    'rescisão',
+    'jurisprudência',
+    'modelo',
+    'cláusulas',
+    'assinatura',
+    'foro',
+    'objeto',
+    'revisão',
+  ]
   const [selectedContext, setSelectedContext] = useState<Process | Contract | null>(null)
   const [showLawsModal, setShowLawsModal] = useState(false)
   const [showTemplatesModal, setShowTemplatesModal] = useState(false)
@@ -43,6 +57,8 @@ export function LegalEditor() {
   const [availableFolders, setAvailableFolders] = useState<StoredFolder[]>([])
   const [showFolderSelect, setShowFolderSelect] = useState(false)
   const [isUploadingPJE, setIsUploadingPJE] = useState(false)
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false)
+  const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'correction'>('all')
 
   const isPro = user?.plan === 'pro'
   
@@ -74,16 +90,53 @@ export function LegalEditor() {
     setWordCount(words)
     setCharacterCount(characters)
     
-    // Simular sugestões para usuários Pro baseadas no contexto
-    if (isPro && value.length > 10) {
-      // Aqui seria feita a chamada real para a API de sugestões
-      const mockSuggestions = generateContextualSuggestions(value, selectedContext)
-      setSuggestions(mockSuggestions)
-    }
+    // A geração de sugestões reais ocorre via efeito com debounce
   }
 
-  const generateContextualSuggestions = (_text: string, context: Process | Contract | null) => {
-    const baseSuggestions = [
+  // Buscar sugestões com debounce usando IA local
+  useEffect(() => {
+    if (!isPro) return
+    const text = content.trim()
+    if (text.length < 10) {
+      setSuggestions([])
+      return
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        let contextStr: string | undefined = undefined
+        if (selectedContext) {
+          if ('status' in selectedContext) {
+            const process = selectedContext as Process
+            contextStr = `process:${process.type}`
+          } else {
+            const contract = selectedContext as Contract
+            contextStr = `contract:${contract.type}`
+          }
+        }
+
+        const payload = {
+          text: text.slice(-500),
+          context: contextStr,
+          topics: selectedTopics.length > 0 ? selectedTopics : undefined,
+        }
+
+        const result = await aiEngine.getEditorSuggestions(payload)
+        setSuggestions(result)
+      } catch (err: any) {
+        // Fallback para sugestões contextuais locais
+        const mock = generateContextualSuggestions(text, selectedContext)
+        setSuggestions(mock)
+      }
+    }, 350)
+
+    return () => {
+      clearTimeout(timeout)
+    }
+  }, [content, isPro, selectedContext, selectedTopics])
+
+  const generateContextualSuggestions = (_text: string, context: Process | Contract | null): EditorSuggestion[] => {
+    const baseSuggestions: EditorSuggestion[] = [
       {
         id: '1',
         type: 'autocomplete',
@@ -103,7 +156,7 @@ export function LegalEditor() {
     ]
 
     if (context) {
-      const contextualSuggestions = []
+      const contextualSuggestions: EditorSuggestion[] = []
       
       if ('status' in context) {
         // É um processo
@@ -232,9 +285,69 @@ export function LegalEditor() {
     }
   }
 
-  const handleSuggestionAccept = (suggestion: any) => {
-    // Implementar lógica para aceitar sugestão
-    console.log('Aceitar sugestão:', suggestion)
+  const handleSuggestionAccept = (suggestion: EditorSuggestion) => {
+    const editor = (window as any).monacoEditor
+    const insertText = suggestion.replacement || suggestion.text
+    if (editor && typeof editor.getModel === 'function') {
+      const selection = editor.getSelection()
+      editor.executeEdits('ai-suggestion', [{
+        range: selection,
+        text: insertText,
+        forceMoveMarkers: true,
+      }])
+      editor.focus()
+    } else {
+      setContent(prev => prev + (prev.endsWith('\n') ? '' : '\n') + insertText)
+    }
+  }
+
+  const handleGenerateDraft = async () => {
+    if (isGeneratingDraft) return
+    setIsGeneratingDraft(true)
+    try {
+      let contextStr: string | undefined = undefined
+      if (selectedContext) {
+        if ('status' in selectedContext) {
+          const process = selectedContext as Process
+          contextStr = `process:${process.type}`
+        } else {
+          const contract = selectedContext as Contract
+          contextStr = `contract:${contract.type}`
+        }
+      }
+
+      const payload = {
+        text: content.slice(-1000),
+        context: contextStr,
+        topics: selectedTopics.length > 0 ? selectedTopics : undefined,
+      }
+      const { draft } = await aiEngine.generateDraft(payload)
+
+      const editor = (window as any).monacoEditor
+      const insertText = `\n\n${draft}`
+      if (editor && typeof editor.getModel === 'function') {
+        const model = editor.getModel()
+        const endLine = model.getLineCount()
+        const endColumn = model.getLineMaxColumn(endLine)
+        editor.executeEdits('ai-draft', [{
+          range: { startLineNumber: endLine, startColumn: endColumn, endLineNumber: endLine, endColumn: endColumn },
+          text: insertText,
+          forceMoveMarkers: true,
+        }])
+        editor.focus()
+      } else {
+        setContent(prev => prev + insertText)
+      }
+    } catch (e) {
+      console.error('Falha ao gerar minuta', e)
+      alert('Não foi possível gerar a minuta agora. Tente novamente.')
+    } finally {
+      setIsGeneratingDraft(false)
+    }
+  }
+
+  const toggleTopic = (topic: string) => {
+    setSelectedTopics(prev => prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic])
   }
 
   const handleTemplateSelect = (templateContent: string) => {
@@ -518,9 +631,42 @@ export function LegalEditor() {
                   <p className="text-sm text-blue-700 mb-4">
                     Sugestões inteligentes baseadas no contexto
                   </p>
+                  {/* Ações rápidas */}
+                  <div className="flex gap-2 mb-3">
+                    <Button size="sm" variant="primary" onClick={handleGenerateDraft} disabled={isGeneratingDraft}>
+                      {isGeneratingDraft ? 'Gerando...' : 'Gerar minuta'}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setSuggestionFilter('correction')}>
+                      Revisar cláusulas
+                    </Button>
+                  </div>
+                  {suggestionFilter === 'correction' && (
+                    <div className="text-xs text-blue-800 mb-2">
+                      Exibindo sugestões de revisão. <button className="underline" onClick={() => setSuggestionFilter('all')}>Mostrar todas</button>
+                    </div>
+                  )}
+                  {/* Seleção de tópicos */}
+                  <div className="mb-4">
+                    <div className="text-xs font-medium text-blue-900 mb-2">Tópicos (opcional)</div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableTopics.map((topic) => {
+                        const selected = selectedTopics.includes(topic)
+                        return (
+                          <Badge
+                            key={topic}
+                            variant={selected ? 'default' : 'outline'}
+                            className={`cursor-pointer ${selected ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 border-blue-300'}`}
+                            onClick={() => toggleTopic(topic)}
+                          >
+                            {topic}
+                          </Badge>
+                        )
+                      })}
+                    </div>
+                  </div>
                   {suggestions.length > 0 ? (
                     <div className="space-y-2">
-                      {suggestions.slice(0, 3).map((suggestion) => (
+                      {(suggestionFilter === 'correction' ? suggestions.filter(s => s.type === 'correction') : suggestions).slice(0, 3).map((suggestion) => (
                         <div
                           key={suggestion.id}
                           className="p-3 bg-white rounded-md cursor-pointer hover:bg-blue-50 transition-colors border border-blue-100"

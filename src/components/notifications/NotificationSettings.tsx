@@ -59,7 +59,7 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      updateSettings(formData)
+      await updateSettings(formData)
       onClose()
     } finally {
       setIsSaving(false)
@@ -85,7 +85,7 @@ export function NotificationSettingsModal({ isOpen, onClose }: NotificationSetti
       
       // Import and use the notification service directly
       const { notificationService } = await import('@/services/notificationService')
-      notificationService.createNotification(testNotification)
+      await notificationService.createNotification(testNotification)
       setTestNotificationSent(true)
       setTimeout(() => setTestNotificationSent(false), 3000)
     }

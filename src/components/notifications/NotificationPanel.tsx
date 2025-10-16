@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Bell, Check, Trash2, Clock, AlertTriangle, FileText, DollarSign, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -24,10 +24,37 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
     unreadCount, 
     markAsRead, 
     markAllAsRead, 
-    deleteNotification 
+    deleteNotification,
+    isRealtimeActive,
+    hasMore,
+    isLoadingMore,
+    loadMoreNotifications
   } = useNotifications()
   
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [typeFilter, setTypeFilter] = useState<string>('')
+  const [priorityFilter, setPriorityFilter] = useState<NotificationPriority | ''>('')
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    notifications.forEach(n => {
+      counts[n.type] = (counts[n.type] || 0) + 1
+    })
+    return counts
+  }, [notifications])
+
+  const priorityCounts = useMemo(() => {
+    const counts: Record<NotificationPriority, number> = {
+      urgent: 0,
+      high: 0,
+      medium: 0,
+      low: 0
+    }
+    notifications.forEach(n => {
+      counts[n.priority] = (counts[n.priority] || 0) + 1
+    })
+    return counts
+  }, [notifications])
 
   const getPriorityIcon = (priority: NotificationPriority) => {
     switch (priority) {
@@ -70,6 +97,44 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
     }
   }
 
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'contract_expiring':
+      case 'contract_expired':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'process_deadline':
+      case 'process_urgent':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'payment_due':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const formatTypeLabel = (type: string) => {
+    switch (type) {
+      case 'contract_expiring':
+        return 'Contrato expirando'
+      case 'contract_expired':
+        return 'Contrato expirado'
+      case 'process_deadline':
+        return 'Prazo de processo'
+      case 'process_urgent':
+        return 'Processo urgente'
+      case 'payment_due':
+        return 'Pagamento devido'
+      case 'document_required':
+        return 'Documento requerido'
+      case 'court_hearing':
+        return 'Audiência'
+      case 'custom':
+        return 'Custom'
+      default:
+        return 'Outro'
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -85,16 +150,19 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
     }
   }
 
-  const filteredNotifications = filter === 'unread' 
-    ? notifications.filter(n => !n.isRead)
-    : notifications
+  const filteredNotifications = notifications.filter(n => {
+    const matchesRead = filter === 'unread' ? !n.isRead : true
+    const matchesType = typeFilter ? n.type === typeFilter : true
+    const matchesPriority = priorityFilter ? n.priority === priorityFilter : true
+    return matchesRead && matchesType && matchesPriority
+  })
 
-  const handleMarkAsRead = (notificationId: string) => {
-    markAsRead(notificationId)
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markAsRead(notificationId)
   }
 
-  const handleDelete = (notificationId: string) => {
-    deleteNotification(notificationId)
+  const handleDelete = async (notificationId: string) => {
+    await deleteNotification(notificationId)
   }
 
   return (
@@ -104,6 +172,12 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
           <DialogTitle className="flex items-center gap-2">
             <Bell className="w-5 h-5" />
             Notificações
+            {isRealtimeActive && (
+              <span className="ml-auto flex items-center gap-1 text-xs text-green-700">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                Ao vivo
+              </span>
+            )}
             {unreadCount > 0 && (
               <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
                 {unreadCount} não lidas
@@ -133,6 +207,34 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
               >
                 Não lidas ({unreadCount})
               </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="">Tipo: Todos ({notifications.length})</option>
+                <option value="contract_expiring">Contrato expirando ({typeCounts['contract_expiring'] || 0})</option>
+                <option value="contract_expired">Contrato expirado ({typeCounts['contract_expired'] || 0})</option>
+                <option value="process_deadline">Prazo de processo ({typeCounts['process_deadline'] || 0})</option>
+                <option value="process_urgent">Processo urgente ({typeCounts['process_urgent'] || 0})</option>
+                <option value="payment_due">Pagamento devido ({typeCounts['payment_due'] || 0})</option>
+                <option value="document_required">Documento requerido ({typeCounts['document_required'] || 0})</option>
+                <option value="court_hearing">Audiência ({typeCounts['court_hearing'] || 0})</option>
+                <option value="custom">Custom ({typeCounts['custom'] || 0})</option>
+              </select>
+              <select
+                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value as NotificationPriority | '')}
+              >
+                <option value="">Prioridade: Todas ({notifications.length})</option>
+                <option value="urgent">Urgente ({priorityCounts.urgent || 0})</option>
+                <option value="high">Alta ({priorityCounts.high || 0})</option>
+                <option value="medium">Média ({priorityCounts.medium || 0})</option>
+                <option value="low">Baixa ({priorityCounts.low || 0})</option>
+              </select>
             </div>
             
             {unreadCount > 0 && (
@@ -197,6 +299,13 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
                           <div className="flex items-center gap-2">
                             <Badge 
                               variant="outline" 
+                              className={`text-xs ${getTypeColor(notification.type)}`}
+                            >
+                              {getTypeIcon(notification.type)}
+                              <span className="ml-1">{formatTypeLabel(notification.type)}</span>
+                            </Badge>
+                            <Badge 
+                              variant="outline" 
                               className={`text-xs ${getPriorityColor(notification.priority)}`}
                             >
                               {getPriorityIcon(notification.priority)}
@@ -234,6 +343,20 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
               ))
             )}
           </div>
+
+          {/* Load More */}
+          {hasMore && (
+            <div className="flex justify-center">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={loadMoreNotifications}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? 'Carregando...' : 'Carregar mais'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

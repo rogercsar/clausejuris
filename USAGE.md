@@ -137,6 +137,8 @@ O sistema inclui dados mockados para demonstração:
 2. **Substitua os mocks** pelos endpoints reais
 3. **Implemente autenticação JWT** real
 4. **Configure variáveis de ambiente**
+   - `VITE_API_URL=https://seu-backend/api`
+   - `VITE_USE_MSW=false` para desabilitar os mocks
 
 ### Para Deploy:
 

@@ -180,10 +180,25 @@ class ApiClient {
   }
 
   // Editor
-  async getEditorSuggestions(data: { text: string; context?: string }): Promise<EditorSuggestion[]> {
+  async getEditorSuggestions(
+    data: { text: string; context?: string; topics?: string[] },
+    opts?: { signal?: AbortSignal }
+  ): Promise<EditorSuggestion[]> {
     return this.request<EditorSuggestion[]>('/editor/suggest', {
       method: 'POST',
       body: JSON.stringify(data),
+      signal: opts?.signal,
+    })
+  }
+
+  async generateDraft(
+    data: { text: string; context?: string; topics?: string[] },
+    opts?: { signal?: AbortSignal }
+  ): Promise<{ draft: string }> {
+    return this.request<{ draft: string }>('/editor/generate-draft', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal: opts?.signal,
     })
   }
 

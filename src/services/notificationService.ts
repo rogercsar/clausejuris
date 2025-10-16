@@ -6,6 +6,7 @@ import type {
   Contract,
   Process
 } from '@/types'
+import { supabase, hasSupabaseConfig } from '@/lib/supabase'
 
 class NotificationService {
   private notifications: Notification[] = []
@@ -15,6 +16,8 @@ class NotificationService {
 
   constructor() {
     this.loadFromStorage()
+    // Background sync from Supabase if available
+    this.syncFromSupabase().catch(() => {})
     this.startPeriodicCheck()
   }
 
@@ -44,45 +47,203 @@ class NotificationService {
     localStorage.setItem('notificationRules', JSON.stringify(this.rules))
   }
 
-  // Notification management
-  createNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Notification {
-    const newNotification: Notification = {
-      ...notification,
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      isRead: false
+  // Supabase helpers
+  private mapNotificationRow(row: any): Notification {
+    return {
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      message: row.message,
+      entityId: row.entity_id ?? '',
+      entityType: row.entity_type === 'process' ? 'process' : 'contract',
+      entityName: row.entity_name ?? '',
+      priority: row.priority,
+      isRead: row.is_read,
+      createdAt: row.created_at,
+      scheduledFor: row.scheduled_for ?? undefined,
+      metadata: row.metadata ?? undefined,
+    }
+  }
+
+  private mapSettingsRow(row: any): NotificationSettings {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      emailNotifications: row.email_notifications,
+      browserNotifications: row.browser_notifications,
+      contractExpiryDays: row.contract_expiry_days,
+      processDeadlineDays: row.process_deadline_days,
+      paymentReminderDays: row.payment_reminder_days,
+      courtHearingReminderDays: row.court_hearing_reminder_days,
+      quietHours: row.quiet_hours,
+      notificationTypes: row.notification_types,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private async getUserId(): Promise<string | null> {
+    if (!hasSupabaseConfig) return null
+    const { data } = await supabase.auth.getUser()
+    return data.user?.id ?? null
+  }
+
+  private async syncFromSupabase(): Promise<void> {
+    if (!hasSupabaseConfig) return
+    const userId = await this.getUserId()
+    if (!userId) return
+
+    const { data: notifRows } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (Array.isArray(notifRows)) {
+      this.notifications = notifRows.map(r => this.mapNotificationRow(r))
     }
 
-    this.notifications.unshift(newNotification)
+    const { data: settingsRow } = await supabase
+      .from('notification_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle()
+    if (settingsRow) {
+      this.settings = this.mapSettingsRow(settingsRow)
+    }
+
     this.saveToStorage()
-    this.showBrowserNotification(newNotification)
-    return newNotification
+  }
+
+  // Notification management
+  async createNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Promise<Notification> {
+    const nowIso = new Date().toISOString()
+    if (hasSupabaseConfig) {
+      const userId = await this.getUserId()
+      if (userId) {
+        const payload: any = {
+          user_id: userId,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          entity_id: notification.entityId ?? null,
+          entity_type: notification.entityType,
+          entity_name: notification.entityName ?? null,
+          priority: notification.priority,
+          is_read: false,
+          scheduled_for: notification.scheduledFor ?? null,
+          metadata: notification.metadata ?? null,
+          created_at: nowIso,
+        }
+        const { data } = await supabase
+          .from('notifications')
+          .insert(payload)
+          .select('*')
+          .single()
+        if (data) {
+          const mapped = this.mapNotificationRow(data)
+          this.notifications.unshift(mapped)
+          this.saveToStorage()
+          this.showBrowserNotification(mapped)
+          return mapped
+        }
+      }
+    }
+
+    // Fallback to local storage
+    const local: Notification = {
+      ...notification,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: nowIso,
+      isRead: false,
+    }
+    this.notifications.unshift(local)
+    this.saveToStorage()
+    this.showBrowserNotification(local)
+    return local
   }
 
   getNotifications(): Notification[] {
     return this.notifications
   }
 
+  async getNotificationsAsync(): Promise<Notification[]> {
+    if (hasSupabaseConfig) {
+      const userId = await this.getUserId()
+      if (userId) {
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+        if (Array.isArray(data)) {
+          this.notifications = data.map(r => this.mapNotificationRow(r))
+          this.saveToStorage()
+        }
+      }
+    }
+    return this.notifications
+  }
+
+  async getNotificationsPage(offset: number, limit: number): Promise<{ items: Notification[]; total: number }> {
+    if (hasSupabaseConfig) {
+      const userId = await this.getUserId()
+      if (userId) {
+        const { data, count } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
+        const items = Array.isArray(data) ? data.map(r => this.mapNotificationRow(r)) : []
+        return { items, total: count ?? items.length }
+      }
+    }
+    const items = this.notifications.slice(offset, offset + limit)
+    return { items, total: this.notifications.length }
+  }
+
   getUnreadNotifications(): Notification[] {
     return this.notifications.filter(n => !n.isRead)
   }
 
-  markAsRead(notificationId: string): void {
+  async markAsRead(notificationId: string): Promise<void> {
     const notification = this.notifications.find(n => n.id === notificationId)
     if (notification) {
       notification.isRead = true
       this.saveToStorage()
+      if (hasSupabaseConfig) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notificationId)
+      }
     }
   }
 
-  markAllAsRead(): void {
+  async markAllAsRead(): Promise<void> {
     this.notifications.forEach(n => n.isRead = true)
     this.saveToStorage()
+    if (hasSupabaseConfig) {
+      const userId = await this.getUserId()
+      if (userId) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', userId)
+      }
+    }
   }
 
-  deleteNotification(notificationId: string): void {
+  async deleteNotification(notificationId: string): Promise<void> {
     this.notifications = this.notifications.filter(n => n.id !== notificationId)
     this.saveToStorage()
+    if (hasSupabaseConfig) {
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+    }
   }
 
   // Settings management
@@ -90,11 +251,30 @@ class NotificationService {
     return this.settings
   }
 
-  updateSettings(settings: Partial<NotificationSettings>): void {
+  async getSettingsAsync(): Promise<NotificationSettings | null> {
+    if (hasSupabaseConfig) {
+      const userId = await this.getUserId()
+      if (userId) {
+        const { data } = await supabase
+          .from('notification_settings')
+          .select('*')
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle()
+        if (data) {
+          this.settings = this.mapSettingsRow(data)
+          this.saveToStorage()
+        }
+      }
+    }
+    return this.settings
+  }
+
+  async updateSettings(settings: Partial<NotificationSettings>): Promise<void> {
     if (!this.settings) {
       this.settings = {
         id: `settings-${Date.now()}`,
-        userId: 'current-user', // In real app, get from auth context
+        userId: 'current-user', // Fallback; replaced when Supabase is available
         emailNotifications: true,
         browserNotifications: true,
         contractExpiryDays: [30, 15, 7, 1],
@@ -128,6 +308,26 @@ class NotificationService {
     }
 
     this.saveToStorage()
+
+    if (hasSupabaseConfig) {
+      const userId = await this.getUserId()
+      if (userId && this.settings) {
+        const payload: any = {
+          user_id: userId,
+          email_notifications: this.settings.emailNotifications,
+          browser_notifications: this.settings.browserNotifications,
+          contract_expiry_days: this.settings.contractExpiryDays,
+          process_deadline_days: this.settings.processDeadlineDays,
+          payment_reminder_days: this.settings.paymentReminderDays,
+          court_hearing_reminder_days: this.settings.courtHearingReminderDays,
+          quiet_hours: this.settings.quietHours,
+          notification_types: this.settings.notificationTypes,
+        }
+        await supabase
+          .from('notification_settings')
+          .upsert(payload, { onConflict: 'user_id' })
+      }
+    }
   }
 
   // Rules management
