@@ -153,7 +153,7 @@ export function EditorToolbar({
         {/* Right Section - Tools and Info */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Primary Actions */}
-          <Button variant="default" size="sm" onClick={onSave} title="Salvar">
+          <Button variant="primary" size="sm" onClick={onSave} title="Salvar">
             <Save className="w-4 h-4 mr-2" />
             Salvar
           </Button>
