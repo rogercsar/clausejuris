@@ -96,6 +96,19 @@ export const aiEngine = {
       })
     }
 
+    // Pequeno ajuste por palavra-chave no texto para demonstrar uso do parâmetro
+    const textLc = (text || '').toLowerCase()
+    if (textLc.includes('contrato')) {
+      contextual.push({
+        id: 'kw-ctr',
+        type: 'snippet',
+        text: 'cláusula contratual',
+        replacement: 'As partes firmam as cláusulas a seguir, observando a legislação aplicável.',
+        description: 'Sugestão por palavra-chave: contrato',
+        confidence: 0.86,
+      })
+    }
+
     const suggestions = [...base, ...contextual]
     return Promise.resolve(suggestions)
   },

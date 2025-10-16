@@ -23,51 +23,7 @@ export function useNotifications() {
   const [hasMore, setHasMore] = useState(false)
   const { user } = useAuthStore()
 
-  // Load initial data
-  useEffect(() => {
-    // Load from Supabase when available, fallback to local storage
-    loadNotifications()
-    loadSettings()
-    loadRules()
-  }, [])
-
-  // Real-time updates via Supabase
-  useEffect(() => {
-    if (!hasSupabaseConfig || !user?.id) return
-
-    const notifChannel = supabase
-      .channel(`notifications:${user.id}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${user.id}`
-      }, async () => {
-        await loadNotifications()
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') setRealtimeActive(true)
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRealtimeActive(false)
-      })
-
-    const settingsChannel = supabase
-      .channel(`notification_settings:${user.id}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notification_settings',
-        filter: `user_id=eq.${user.id}`
-      }, async () => {
-        await loadSettings()
-      })
-      .subscribe()
-
-    return () => {
-      setRealtimeActive(false)
-      supabase.removeChannel(notifChannel)
-      supabase.removeChannel(settingsChannel)
-    }
-  }, [user?.id, loadNotifications, loadSettings])
+  // --- Callbacks & actions
 
   const loadNotifications = useCallback(async () => {
     const { items, total } = await notificationService.getNotificationsPage(0, pageSize)
@@ -163,6 +119,56 @@ export function useNotifications() {
   }, [])
 
   const unreadCount = notifications.filter(n => !n.isRead).length
+
+  // --- Effects (placed after callbacks to avoid TS "used before assigned")
+
+  // Load initial data
+  useEffect(() => {
+    // Load from Supabase when available, fallback to local storage
+    loadNotifications()
+    loadSettings()
+    loadRules()
+    // Intencionalmente não adicionamos dependências para carregar apenas uma vez
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Real-time updates via Supabase
+  useEffect(() => {
+    if (!hasSupabaseConfig || !user?.id) return
+
+    const notifChannel = supabase
+      .channel(`notifications:${user.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
+      }, async () => {
+        await loadNotifications()
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeActive(true)
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRealtimeActive(false)
+      })
+
+    const settingsChannel = supabase
+      .channel(`notification_settings:${user.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notification_settings',
+        filter: `user_id=eq.${user.id}`
+      }, async () => {
+        await loadSettings()
+      })
+      .subscribe()
+
+    return () => {
+      setRealtimeActive(false)
+      supabase.removeChannel(notifChannel)
+      supabase.removeChannel(settingsChannel)
+    }
+  }, [user?.id, loadNotifications, loadSettings])
 
   return {
     notifications,
