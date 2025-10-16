@@ -11,7 +11,8 @@ import {
   BarChart,
   FolderOpen
 } from 'lucide-react'
-import { MonacoEditor } from '@/components/editor/MonacoEditor'
+// import { MonacoEditor } from '@/components/editor/MonacoEditor'
+import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { ContextSelector } from '@/components/editor/ContextSelector'
 import { ContextInfo } from '@/components/editor/ContextInfo'
 import { EditorToolbar } from '@/components/editor/EditorToolbar'
@@ -31,6 +32,7 @@ export function LegalEditor() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const [content, setContent] = useState('')
+  const [richEditor, setRichEditor] = useState<any>(null)
   const [suggestions, setSuggestions] = useState<EditorSuggestion[]>([])
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
   const availableTopics = [
@@ -83,13 +85,19 @@ export function LegalEditor() {
 
   const handleContentChange = (value: string) => {
     setContent(value)
-    
-    // Calcular estatísticas
-    const words = value.trim().split(/\s+/).filter(word => word.length > 0).length
-    const characters = value.length
+
+    // Calcular estatísticas a partir de texto puro (removendo tags HTML)
+    const plain = value
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+    const words = plain.trim().split(/\s+/).filter(word => word.length > 0).length
+    const characters = plain.replace(/\s+/g, ' ').trim().length
     setWordCount(words)
     setCharacterCount(characters)
-    
+
     // A geração de sugestões reais ocorre via efeito com debounce
   }
 
@@ -240,12 +248,12 @@ export function LegalEditor() {
     const clientId = context.clientId
     const clientName = context.clientName
     ensureClientFolder(clientId, clientName)
-    const defaultName = `Documento_${new Date().toISOString().slice(0,10)}.txt`
+    const defaultName = `Documento_${new Date().toISOString().slice(0,10)}.html`
     
     try {
       const savedFile = saveClientFile(clientId, clientName, {
         name: defaultName,
-        mimeType: 'text/plain',
+        mimeType: 'text/html',
         content: content
       }, selectedFolderId)
       console.log('Arquivo salvo com sucesso:', savedFile)
@@ -286,16 +294,9 @@ export function LegalEditor() {
   }
 
   const handleSuggestionAccept = (suggestion: EditorSuggestion) => {
-    const editor = (window as any).monacoEditor
     const insertText = suggestion.replacement || suggestion.text
-    if (editor && typeof editor.getModel === 'function') {
-      const selection = editor.getSelection()
-      editor.executeEdits('ai-suggestion', [{
-        range: selection,
-        text: insertText,
-        forceMoveMarkers: true,
-      }])
-      editor.focus()
+    if (richEditor) {
+      richEditor.chain().focus().insertContent(insertText).run()
     } else {
       setContent(prev => prev + (prev.endsWith('\n') ? '' : '\n') + insertText)
     }
@@ -351,11 +352,19 @@ export function LegalEditor() {
   }
 
   const handleTemplateSelect = (templateContent: string) => {
-    setContent(prev => prev + '\n\n' + templateContent)
+    if (richEditor) {
+      richEditor.chain().focus().insertContent(templateContent).run()
+    } else {
+      setContent(prev => prev + '\n\n' + templateContent)
+    }
   }
 
   const handleLawSelect = (lawContent: string) => {
-    setContent(prev => prev + '\n\n' + lawContent)
+    if (richEditor) {
+      richEditor.chain().focus().insertContent(lawContent).run()
+    } else {
+      setContent(prev => prev + '\n\n' + lawContent)
+    }
   }
 
   // Funções para a barra de ferramentas
@@ -384,96 +393,61 @@ export function LegalEditor() {
   }
 
   const handleUndo = () => {
-    const editor = (window as any).monacoEditor
-    if (editor) {
-      editor.trigger('keyboard', 'undo', {})
+    if (richEditor) {
+      richEditor.commands.undo()
     }
   }
 
   const handleRedo = () => {
-    const editor = (window as any).monacoEditor
-    if (editor) {
-      editor.trigger('keyboard', 'redo', {})
+    if (richEditor) {
+      richEditor.commands.redo()
     }
   }
 
   const handleFormat = (format: string) => {
-    const editor = (window as any).monacoEditor
-    if (!editor) {
-      console.warn('Editor não encontrado')
-      return
-    }
-
-    const selection = editor.getSelection()
-    if (!selection) {
-      console.warn('Nenhuma seleção encontrada')
-      return
-    }
-
-    const model = editor.getModel()
-    if (!model) {
-      console.warn('Modelo do editor não encontrado')
-      return
-    }
-
-    const selectedText = model.getValueInRange(selection)
-    let formattedText = selectedText
-
+    if (!richEditor) return
+    const chain = richEditor.chain().focus()
     switch (format) {
       case 'bold':
-        formattedText = `**${selectedText}**`
+        chain.toggleBold().run()
         break
       case 'italic':
-        formattedText = `*${selectedText}*`
+        chain.toggleItalic().run()
         break
       case 'underline':
-        formattedText = `<u>${selectedText}</u>`
+        chain.toggleUnderline().run()
         break
       case 'alignLeft':
-        formattedText = `<div style="text-align: left;">${selectedText}</div>`
+        chain.setTextAlign('left').run()
         break
       case 'alignCenter':
-        formattedText = `<div style="text-align: center;">${selectedText}</div>`
+        chain.setTextAlign('center').run()
         break
       case 'alignRight':
-        formattedText = `<div style="text-align: right;">${selectedText}</div>`
+        chain.setTextAlign('right').run()
         break
       case 'bulletList':
-        formattedText = `• ${selectedText}`
+        chain.toggleBulletList().run()
         break
       case 'numberedList':
-        formattedText = `1. ${selectedText}`
+        chain.toggleOrderedList().run()
         break
       case 'quote':
-        formattedText = `> ${selectedText}`
+        chain.toggleBlockquote().run()
         break
       default:
         console.warn('Formato não reconhecido:', format)
-        return
+        break
     }
-
-    // Executar a edição
-    editor.executeEdits('format', [{
-      range: selection,
-      text: formattedText,
-      forceMoveMarkers: true
-    }])
-
-    // Atualizar a seleção para incluir o texto formatado
-    const newRange = {
-      startLineNumber: selection.startLineNumber,
-      startColumn: selection.startColumn,
-      endLineNumber: selection.endLineNumber,
-      endColumn: selection.startColumn + formattedText.length
-    }
-    
-    editor.setSelection(newRange)
-    editor.focus()
   }
 
 
   const handleInsertLaw = (lawContent: string) => {
-    setContent(prev => prev + '\n\n' + lawContent)
+    if (richEditor) {
+      richEditor.chain().focus().insertContent(lawContent).run()
+    } else {
+      setContent(prev => prev + '\n\n' + lawContent)
+    }
     setShowLawsModal(false)
   }
 
@@ -602,12 +576,11 @@ export function LegalEditor() {
             {/* Editor */}
             <div className="p-6">
               <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                <MonacoEditor
-                  value={content}
+                <RichTextEditor
+                  valueHTML={content}
                   onChange={handleContentChange}
-                  isPro={isPro}
-                  suggestions={suggestions}
-                  onSuggestionAccept={handleSuggestionAccept}
+                  onReady={(editor: any) => setRichEditor(editor)}
+                  height="520px"
                 />
               </div>
             </div>
