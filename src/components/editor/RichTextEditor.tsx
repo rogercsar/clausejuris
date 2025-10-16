@@ -69,8 +69,10 @@ export function RichTextEditor({ valueHTML, onChange, onReady, height = '60vh' }
 
   return (
     <div style={{ height }} className="bg-white">
-      <div className="border-t border-gray-100">
-        <EditorContent editor={editor} />
+      <div className="border-t border-gray-100 h-full">
+        <div className="h-full overflow-auto">
+          <EditorContent editor={editor} />
+        </div>
       </div>
     </div>
   )

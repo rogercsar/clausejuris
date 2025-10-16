@@ -152,6 +152,16 @@ export function EditorToolbar({
 
         {/* Right Section - Tools and Info */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Primary Actions */}
+          <Button variant="default" size="sm" onClick={onSave} title="Salvar">
+            <Save className="w-4 h-4 mr-2" />
+            Salvar
+          </Button>
+          <Button variant="outline" size="sm" onClick={onExportPDF} title="Exportar PDF">
+            <Download className="w-4 h-4 mr-2" />
+            Exportar
+          </Button>
+
           {/* Laws Library - Now opens modal instead of navigating */}
           <Button variant="outline" size="sm" onClick={onSearchLaws}>
             <BookOpen className="w-4 h-4 mr-2" />
