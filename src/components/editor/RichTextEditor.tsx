@@ -4,6 +4,11 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableCell from '@tiptap/extension-table-cell'
+import TableHeader from '@tiptap/extension-table-header'
 
 type RichTextEditorProps = {
   valueHTML: string
@@ -16,7 +21,7 @@ export function RichTextEditor({ valueHTML, onChange, onReady, height = '60vh' }
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        history: true,
+        // History já vem habilitado por padrão no StarterKit
       }),
       Underline,
       TextAlign.configure({
@@ -25,6 +30,16 @@ export function RichTextEditor({ valueHTML, onChange, onReady, height = '60vh' }
       Link.configure({
         openOnClick: true,
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+      }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: valueHTML || '<p></p>',
     editorProps: {
@@ -48,7 +63,7 @@ export function RichTextEditor({ valueHTML, onChange, onReady, height = '60vh' }
     if (!editor) return
     const current = editor.getHTML()
     if (valueHTML !== current) {
-      editor.commands.setContent(valueHTML || '<p></p>', false)
+      editor.commands.setContent(valueHTML || '<p></p>', { emitUpdate: false })
     }
   }, [valueHTML, editor])
 

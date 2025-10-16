@@ -392,6 +392,40 @@ export function LegalEditor() {
     setShowLawsModal(true)
   }
 
+  const handleInsert = (type: string) => {
+    if (!richEditor) return
+    const chain = richEditor.chain().focus()
+    switch (type) {
+      case 'link': {
+        const href = window.prompt('URL do link:')?.trim()
+        if (!href) return
+        const hasSelection = richEditor.state.selection.from !== richEditor.state.selection.to
+        if (hasSelection) {
+          chain.setLink({ href }).run()
+        } else {
+          const label = window.prompt('Texto do link (opcional):')?.trim() || href
+          chain.insertContent(`<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`).run()
+        }
+        break
+      }
+      case 'image': {
+        const src = window.prompt('URL da imagem:')?.trim()
+        if (!src) return
+        const alt = window.prompt('Texto alternativo (alt):')?.trim() || ''
+        chain.setImage({ src, alt }).run()
+        break
+      }
+      case 'table': {
+        const rows = Math.max(1, parseInt(window.prompt('Número de linhas:', '3') || '3', 10))
+        const cols = Math.max(1, parseInt(window.prompt('Número de colunas:', '3') || '3', 10))
+        chain.insertTable({ rows, cols, withHeaderRow: true }).run()
+        break
+      }
+      default:
+        break
+    }
+  }
+
   const handleUndo = () => {
     if (richEditor) {
       richEditor.commands.undo()
@@ -417,6 +451,9 @@ export function LegalEditor() {
       case 'underline':
         chain.toggleUnderline().run()
         break
+      case 'clearFormatting':
+        chain.unsetAllMarks().setParagraph().run()
+        break
       case 'alignLeft':
         chain.setTextAlign('left').run()
         break
@@ -425,6 +462,18 @@ export function LegalEditor() {
         break
       case 'alignRight':
         chain.setTextAlign('right').run()
+        break
+      case 'alignJustify':
+        chain.setTextAlign('justify').run()
+        break
+      case 'heading1':
+        chain.toggleHeading({ level: 1 }).run()
+        break
+      case 'heading2':
+        chain.toggleHeading({ level: 2 }).run()
+        break
+      case 'heading3':
+        chain.toggleHeading({ level: 3 }).run()
         break
       case 'bulletList':
         chain.toggleBulletList().run()
@@ -562,7 +611,7 @@ export function LegalEditor() {
                 onOpenTemplates={handleOpenTemplates}
                 onOpenRecentLaws={handleOpenRecentLaws}
                 onOpenStatistics={handleOpenStatistics}
-              onInsert={() => {}}
+              onInsert={handleInsert}
                 onUndo={handleUndo}
                 onRedo={handleRedo}
                 onFormat={handleFormat}

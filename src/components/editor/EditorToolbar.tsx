@@ -14,12 +14,17 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignJustify,
   List,
   ListOrdered,
   Quote,
   Link,
   Image,
   Table,
+  Heading1,
+  Heading2,
+  Heading3,
+  Eraser,
   MoreHorizontal,
   Settings,
   HelpCircle,
@@ -241,6 +246,22 @@ export function EditorToolbar({
           <Button variant="ghost" size="sm" onClick={() => onFormat('underline')} title="Sublinhado">
             <Underline className="w-4 h-4" />
           </Button>
+          <Button variant="ghost" size="sm" onClick={() => onFormat('clearFormatting')} title="Limpar formatação">
+            <Eraser className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Headings */}
+        <div className="flex items-center gap-1 border-l border-secondary-200 pl-2">
+          <Button variant="ghost" size="sm" onClick={() => onFormat('heading1')} title="Título 1">
+            <Heading1 className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onFormat('heading2')} title="Título 2">
+            <Heading2 className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onFormat('heading3')} title="Título 3">
+            <Heading3 className="w-4 h-4" />
+          </Button>
         </div>
 
         {/* Alignment */}
@@ -253,6 +274,9 @@ export function EditorToolbar({
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onFormat('alignRight')} title="Alinhar à direita">
             <AlignRight className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onFormat('alignJustify')} title="Justificar">
+            <AlignJustify className="w-4 h-4" />
           </Button>
         </div>
 
