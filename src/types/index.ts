@@ -124,6 +124,7 @@ export interface Law {
   name: string
   type: string
   articles: LawArticle[]
+  sourceUrl?: string
 }
 
 export interface LawArticle {

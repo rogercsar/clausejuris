@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { searchLaws, searchArticles, type Law, type LawArticle } from '@/data/laws'
+import { type Law, type LawArticle } from '@/data/laws'
+import { resolveLawProvider } from '@/services/lawProvider'
 
 export function LawsLibrary() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -22,7 +23,8 @@ export function LawsLibrary() {
     category: '',
     type: 'federal',
     year: new Date().getFullYear(),
-    description: ''
+    description: '',
+    sourceUrl: ''
   })
   const [newArticle, setNewArticle] = useState({
     number: '',
@@ -53,18 +55,23 @@ export function LawsLibrary() {
   ]
 
   useEffect(() => {
-    const results = searchLaws(searchQuery, selectedCategory, selectedType)
-    setLaws(results)
+    const provider = resolveLawProvider()
+    let active = true
+    ;(async () => {
+      const results = await provider.searchLaws(searchQuery, { category: selectedCategory, type: selectedType })
+      if (active) setLaws(results)
+    })()
+    return () => { active = false }
   }, [searchQuery, selectedCategory, selectedType])
 
   useEffect(() => {
-    if (selectedLaw) {
-      const results = searchArticles(searchQuery, selectedLaw.id)
-      setArticles(results)
-    } else {
-      const results = searchArticles(searchQuery)
-      setArticles(results)
-    }
+    const provider = resolveLawProvider()
+    let active = true
+    ;(async () => {
+      const results = await provider.searchArticles(searchQuery, selectedLaw?.id)
+      if (active) setArticles(results)
+    })()
+    return () => { active = false }
   }, [selectedLaw, searchQuery])
 
   const handleLawSelect = (law: Law) => {
@@ -86,6 +93,7 @@ export function LawsLibrary() {
         category: newLaw.category as any,
         description: newLaw.description,
         year: newLaw.year,
+        sourceUrl: newLaw.sourceUrl?.trim() ? newLaw.sourceUrl.trim() : undefined,
         articles: [],
         isActive: true,
         lastUpdated: new Date().toISOString().split('T')[0]
@@ -104,13 +112,15 @@ export function LawsLibrary() {
         category: '',
         type: 'federal',
         year: new Date().getFullYear(),
-        description: ''
+        description: '',
+        sourceUrl: ''
       })
       setShowAddLawModal(false)
       
       // Recarregar leis
-      const results = searchLaws(searchQuery, selectedCategory, selectedType)
-      setLaws(results)
+      const provider = resolveLawProvider()
+      provider.searchLaws(searchQuery, { category: selectedCategory, type: selectedType })
+        .then(setLaws)
     }
   }
 
@@ -131,8 +141,9 @@ export function LawsLibrary() {
             localStorage.setItem('customLaws', JSON.stringify(updatedLaws))
             
             // Recarregar leis
-            const results = searchLaws(searchQuery, selectedCategory, selectedType)
-            setLaws(results)
+            const provider = resolveLawProvider()
+            provider.searchLaws(searchQuery, { category: selectedCategory, type: selectedType })
+              .then(setLaws)
           } catch (err) {
             console.error('Erro ao importar leis:', err)
           }
@@ -198,8 +209,9 @@ export function LawsLibrary() {
       setShowAddArticleModal(false)
       
       // Recarregar artigos
-      const results = searchArticles(searchQuery, selectedLaw.id)
-      setArticles(results)
+      const provider = resolveLawProvider()
+      provider.searchArticles(searchQuery, selectedLaw.id)
+        .then(setArticles)
     }
   }
 
@@ -456,14 +468,26 @@ export function LawsLibrary() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-secondary-900">Artigos</h2>
             {selectedLaw && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => setShowAddArticleModal(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar Artigo
-              </Button>
+              <div className="flex items-center gap-2">
+                {selectedLaw.sourceUrl && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(selectedLaw.sourceUrl!, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Abrir fonte oficial
+                  </Button>
+                )}
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => setShowAddArticleModal(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Artigo
+                </Button>
+              </div>
             )}
           </div>
           <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -668,6 +692,18 @@ export function LawsLibrary() {
                   onChange={(e) => setNewLaw(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Breve descrição da lei..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm h-20 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fonte oficial (URL)
+                </label>
+                <Input
+                  type="url"
+                  value={newLaw.sourceUrl}
+                  onChange={(e) => setNewLaw(prev => ({ ...prev, sourceUrl: e.target.value }))}
+                  placeholder="https://www.planalto.gov.br/..."
                 />
               </div>
             </div>

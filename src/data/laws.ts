@@ -18,6 +18,7 @@ export interface Law {
   articles: LawArticle[]
   isActive: boolean
   lastUpdated: string
+  sourceUrl?: string
 }
 
 export const lawsDatabase: Law[] = [
@@ -31,6 +32,7 @@ export const lawsDatabase: Law[] = [
     year: 2002,
     isActive: true,
     lastUpdated: '2024-01-01',
+    sourceUrl: 'https://www.planalto.gov.br/ccivil_03/leis/2002/l10406.htm',
     articles: [
       {
         id: '1-1',
@@ -106,6 +108,7 @@ Parágrafo único. Haverá obrigação de reparar o dano, independentemente de c
     year: 1943,
     isActive: true,
     lastUpdated: '2024-01-01',
+    sourceUrl: 'https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452.htm',
     articles: [
       {
         id: '2-1',
@@ -217,6 +220,7 @@ VIII - é vedada a dispensa do empregado sindicalizado a partir do registro da c
     year: 2015,
     isActive: true,
     lastUpdated: '2024-01-01',
+    sourceUrl: 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13105.htm',
     articles: [
       {
         id: '3-1',
@@ -280,6 +284,7 @@ V - por meio eletrônico, quando se tratar de pessoa física ou jurídica que te
     year: 1988,
     isActive: true,
     lastUpdated: '2024-01-01',
+    sourceUrl: 'https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm',
     articles: [
       {
         id: '4-1',

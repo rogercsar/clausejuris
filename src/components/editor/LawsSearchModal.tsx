@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, BookOpen, FileText, Copy, Check } from 'lucide-react'
+import { Search, BookOpen, FileText, Copy, Check, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog'
-import { searchLaws, searchArticles, type Law, type LawArticle } from '@/data/laws'
+import { type Law, type LawArticle } from '@/data/laws'
+import { resolveLawProvider } from '@/services/lawProvider'
 
 interface LawsSearchModalProps {
   isOpen: boolean
@@ -50,19 +51,24 @@ export function LawsSearchModal({ isOpen, onClose, onInsertLaw }: LawsSearchModa
 
   useEffect(() => {
     if (isOpen) {
-      const results = searchLaws(searchQuery, selectedCategory, selectedType)
-      setLaws(results)
+      const provider = resolveLawProvider()
+      let active = true
+      ;(async () => {
+        const results = await provider.searchLaws(searchQuery, { category: selectedCategory, type: selectedType })
+        if (active) setLaws(results)
+      })()
+      return () => { active = false }
     }
   }, [isOpen, searchQuery, selectedCategory, selectedType])
 
   useEffect(() => {
-    if (selectedLaw) {
-      const results = searchArticles(searchQuery, selectedLaw.id)
-      setArticles(results)
-    } else {
-      const results = searchArticles(searchQuery)
-      setArticles(results)
-    }
+    const provider = resolveLawProvider()
+    let active = true
+    ;(async () => {
+      const results = await provider.searchArticles(searchQuery, selectedLaw?.id)
+      if (active) setArticles(results)
+    })()
+    return () => { active = false }
   }, [selectedLaw, searchQuery])
 
   const handleLawSelect = (law: Law) => {
@@ -145,9 +151,22 @@ export function LawsSearchModal({ isOpen, onClose, onInsertLaw }: LawsSearchModa
                 </option>
               ))}
             </select>
-          </div>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-96 overflow-hidden">
+        {selectedLaw?.sourceUrl && (
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(selectedLaw.sourceUrl!, '_blank', 'noopener,noreferrer')}
+            >
+              <ExternalLink className="w-3 h-3 mr-2" />
+              Abrir fonte oficial
+            </Button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-96 overflow-hidden">
             {/* Laws List */}
             <div className="space-y-2 overflow-y-auto">
               <h3 className="font-medium text-secondary-900">Leis</h3>

@@ -29,6 +29,7 @@ interface CustomLaw {
   category: string
   year: string
   description: string
+  sourceUrl?: string
   articles: LawArticle[]
   isCustom: boolean
 }
@@ -50,7 +51,8 @@ export function EnhancedLawsModal({ isOpen, onClose, onInsertLaw, context }: Enh
     shortName: '',
     category: '',
     year: new Date().getFullYear().toString(),
-    description: ''
+    description: '',
+    sourceUrl: ''
   })
   const [previewArticleId, setPreviewArticleId] = useState<string | null>(null)
 
@@ -169,6 +171,7 @@ export function EnhancedLawsModal({ isOpen, onClose, onInsertLaw, context }: Enh
         category: newLaw.category,
         year: newLaw.year,
         description: newLaw.description,
+        sourceUrl: newLaw.sourceUrl?.trim() ? newLaw.sourceUrl.trim() : undefined,
         articles: [],
         isCustom: true
       }
@@ -179,7 +182,8 @@ export function EnhancedLawsModal({ isOpen, onClose, onInsertLaw, context }: Enh
         shortName: '',
         category: '',
         year: new Date().getFullYear().toString(),
-        description: ''
+        description: '',
+        sourceUrl: ''
       })
       setShowAddLawForm(false)
     }
@@ -417,6 +421,12 @@ export function EnhancedLawsModal({ isOpen, onClose, onInsertLaw, context }: Enh
                   placeholder="Descrição"
                   value={newLaw.description}
                   onChange={(e) => setNewLaw(prev => ({ ...prev, description: e.target.value }))}
+                />
+                <Input
+                  placeholder="Fonte oficial (URL)"
+                  type="url"
+                  value={newLaw.sourceUrl}
+                  onChange={(e) => setNewLaw(prev => ({ ...prev, sourceUrl: e.target.value }))}
                 />
                 <div className="flex gap-3">
                   <Button onClick={handleAddCustomLaw}>
