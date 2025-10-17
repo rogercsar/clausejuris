@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 // import { useNavigate } from 'react-router-dom' // Removido pois não está sendo usado
 import { useAuth } from '@/hooks/useAuth'
@@ -396,9 +396,35 @@ export function LegalEditor() {
     setSuggestions([])
   }
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
   const handleOpenDocument = () => {
-    // Implementar abertura de documento
-    console.log('Abrir documento')
+    // Abrir seletor de arquivo para carregar documento local (.html ou .txt)
+    if (!fileInputRef.current) return
+    fileInputRef.current.click()
+  }
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : ''
+      setContent(text)
+    }
+    reader.onerror = () => {
+      alert('Não foi possível abrir o arquivo selecionado.')
+    }
+    const isText = file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')
+    const isHtml = file.type === 'text/html' || file.name.toLowerCase().endsWith('.html')
+    if (isHtml || isText) {
+      reader.readAsText(file)
+    } else {
+      // Como fallback, tentar ler como texto
+      reader.readAsText(file)
+    }
+    // Permitir selecionar o mesmo arquivo novamente no futuro
+    e.currentTarget.value = ''
   }
 
   const handleExportPDF = () => {
@@ -602,6 +628,14 @@ export function LegalEditor() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Hidden file input for Abrir Documento */}
+      <input
+        type="file"
+        accept=".html,.txt,text/html,text/plain"
+        ref={fileInputRef}
+        onChange={handleFileSelected}
+        style={{ display: 'none' }}
+      />
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Editor Area - Takes more space */}
@@ -613,38 +647,46 @@ export function LegalEditor() {
               onContextSelect={setSelectedContext}
             />
             {/* Folder Selection */}
-            {selectedContext && (
-              <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-900">Pasta de destino</span>
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => setShowFolderSelect(true)}>
-                    Selecionar pasta
-                  </Button>
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">Pasta de destino</span>
                 </div>
-                {availableFolders.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedFolderId || ''}
-                      onChange={(e) => setSelectedFolderId(e.target.value || undefined)}
-                      className="w-full text-sm border border-blue-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">📁 Pasta Principal</option>
-                      {availableFolders.map((folder) => (
-                        <option key={folder.id} value={folder.id}>
-                          📁 {folder.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <p className="text-xs text-blue-600 mt-1">
-                  Salvando em: {selectedFolderPathLabel}
-                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => selectedContext ? setShowFolderSelect(true) : undefined}
+                  disabled={!selectedContext}
+                  title={selectedContext ? 'Selecionar pasta' : 'Selecione um processo/contrato para escolher a pasta'}
+                >
+                  Selecionar pasta
+                </Button>
               </div>
-            )}
+              {selectedContext ? (
+                <>
+                  {availableFolders.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedFolderId || ''}
+                        onChange={(e) => setSelectedFolderId(e.target.value || undefined)}
+                        className="w-full text-sm border border-blue-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">📁 Pasta Principal</option>
+                        {availableFolders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            📁 {folder.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <p className="text-xs text-blue-600 mt-1">Salvando em: {selectedFolderPathLabel}</p>
+                </>
+              ) : (
+                <p className="text-xs text-blue-700 mt-1">Selecione um processo ou contrato acima para habilitar as pastas.</p>
+              )}
+            </div>
           </div>
 
           {/* Editor Container */}
