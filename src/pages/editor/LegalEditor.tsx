@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 // import { useNavigate } from 'react-router-dom' // Removido pois não está sendo usado
 import { useAuth } from '@/hooks/useAuth'
@@ -23,7 +23,7 @@ import { StatisticsModal } from '@/components/editor/StatisticsModal'
 import { useClient } from '@/hooks/useClients'
 import type { Process, Contract, EditorSuggestion } from '@/types'
 import { aiEngine } from '@/services/aiEngine'
-import { ensureClientFolder, saveClientFile, listClientFolders, type StoredFolder } from '@/services/storageService'
+import { ensureClientFolder, saveClientFile, listClientFolders, getFolderPath, type StoredFolder } from '@/services/storageService'
 import { uploadToPJE } from '@/services/pjeService'
 import { TranscriptionModal } from '@/components/editor/TranscriptionModal'
 import { FolderSelectModal } from '@/components/editor/FolderSelectModal'
@@ -63,6 +63,13 @@ export function LegalEditor() {
   const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'correction'>('all')
 
   const isPro = user?.plan === 'pro'
+  
+  const selectedFolderPathLabel = useMemo(() => {
+    if (!selectedContext || !selectedFolderId) return 'Pasta Principal'
+    const path = getFolderPath(selectedContext.clientId, selectedFolderId)
+    if (!path || path.length === 0) return 'Pasta Principal'
+    return ['Pasta Principal', ...path.map(f => f.name)].join(' / ')
+  }, [selectedContext?.clientId, selectedFolderId])
   
   // Buscar dados do cliente se um contexto estiver selecionado
   const { data: client } = useClient(selectedContext?.clientId || '')
@@ -243,6 +250,21 @@ export function LegalEditor() {
     const context = selectedContext
     if (!context) {
       console.warn('Nenhum contexto selecionado para salvar')
+      // Fallback: baixar arquivo localmente como HTML
+      const defaultName = `Documento_${new Date().toISOString().slice(0,10)}.html`
+      try {
+        const blob = new Blob([content || ''], { type: 'text/html;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = defaultName
+        a.click()
+        URL.revokeObjectURL(url)
+        alert('Documento baixado como HTML. Para salvar em uma pasta de cliente, selecione um contexto.')
+      } catch (error) {
+        console.error('Erro ao baixar arquivo:', error)
+        alert('Erro ao baixar o documento. Tente novamente.')
+      }
       return
     }
     const clientId = context.clientId
@@ -380,8 +402,70 @@ export function LegalEditor() {
   }
 
   const handleExportPDF = () => {
-    // Implementar exportação PDF
-    console.log('Exportar PDF')
+    // Exportar via janela de impressão (sem dependências externas)
+    try {
+      const title = `Documento_${new Date().toISOString().slice(0,10)}`
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        alert('Bloqueador de pop-up ativo. Permita pop-ups para exportar o PDF.')
+        return
+      }
+
+      const styles = `
+        <style>
+          @page { margin: 20mm; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif; color: #111827; }
+          .doc { max-width: 800px; margin: 0 auto; }
+          h1, h2, h3 { margin: 0 0 12px; }
+          h1 { font-size: 22pt; }
+          h2 { font-size: 18pt; }
+          h3 { font-size: 14pt; }
+          p { line-height: 1.5; margin: 0 0 10px; }
+          ul { margin: 0 0 10px 20px; }
+          ol { margin: 0 0 10px 20px; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+          th, td { border: 1px solid #e5e7eb; padding: 6px; }
+          img { max-width: 100%; height: auto; }
+          a { color: #1f2937; text-decoration: none; }
+          blockquote { border-left: 3px solid #9ca3af; margin: 8px 0; padding: 6px 10px; color: #374151; }
+          .header { margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; }
+          .meta { font-size: 10pt; color: #6b7280; }
+        </style>
+      `
+
+      const header = `
+        <div class="header">
+          <div class="meta">${selectedContext ? 'Cliente: ' + (selectedContext as any).clientName : 'Sem contexto'}</div>
+          <div class="meta">Data: ${new Date().toLocaleString('pt-BR')}</div>
+        </div>
+      `
+
+      const html = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+          <head>
+            <meta charset="UTF-8" />
+            <title>${title}</title>
+            ${styles}
+          </head>
+          <body>
+            <div class="doc">
+              ${header}
+              ${content || ''}
+            </div>
+            <script>
+              window.onload = function() { setTimeout(function(){ window.print(); window.close(); }, 50); };
+            </script>
+          </body>
+        </html>
+      `
+      printWindow.document.open()
+      printWindow.document.write(html)
+      printWindow.document.close()
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error)
+      alert('Não foi possível exportar o PDF. Tente novamente.')
+    }
   }
 
   const handleSearchLaws = () => {
@@ -557,9 +641,7 @@ export function LegalEditor() {
                   </div>
                 )}
                 <p className="text-xs text-blue-600 mt-1">
-                  {selectedFolderId
-                    ? `Salvando em: ${availableFolders.find(f => f.id === selectedFolderId)?.name || 'Pasta selecionada'}`
-                    : 'Salvando na Pasta Principal'}
+                  Salvando em: {selectedFolderPathLabel}
                 </p>
               </div>
             )}
