@@ -27,6 +27,7 @@ import { ensureClientFolder, saveClientFile, listClientFolders, getFolderPath, t
 import { uploadToPJE } from '@/services/pjeService'
 import { TranscriptionModal } from '@/components/editor/TranscriptionModal'
 import { FolderSelectModal } from '@/components/editor/FolderSelectModal'
+import { ClientFileOpenModal } from '@/components/editor/ClientFileOpenModal'
 
 export function LegalEditor() {
   const { user } = useAuth()
@@ -57,7 +58,9 @@ export function LegalEditor() {
   const [characterCount, setCharacterCount] = useState(0)
   const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined)
   const [availableFolders, setAvailableFolders] = useState<StoredFolder[]>([])
+  const [availableFoldersFlat, setAvailableFoldersFlat] = useState<{ id: string, label: string }[]>([])
   const [showFolderSelect, setShowFolderSelect] = useState(false)
+  const [showOpenSavedModal, setShowOpenSavedModal] = useState(false)
   const [isUploadingPJE, setIsUploadingPJE] = useState(false)
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false)
   const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'correction'>('all')
@@ -87,6 +90,19 @@ export function LegalEditor() {
     if (selectedContext?.clientId) {
       const folders = listClientFolders(selectedContext.clientId)
       setAvailableFolders(folders)
+
+      // Flatten all nested folders for dropdown
+      const flatten = (clientId: string, parentId: string | undefined, prefix: string): { id: string, label: string }[] => {
+        const subs = listClientFolders(clientId, parentId)
+        const items: { id: string, label: string }[] = []
+        subs.forEach((f) => {
+          const path = prefix ? `${prefix} / ${f.name}` : f.name
+          items.push({ id: f.id, label: path })
+          items.push(...flatten(clientId, f.id, path))
+        })
+        return items
+      }
+      setAvailableFoldersFlat(flatten(selectedContext.clientId, undefined, ''))
     }
   }, [selectedContext?.clientId])
 
@@ -665,7 +681,7 @@ export function LegalEditor() {
               </div>
               {selectedContext ? (
                 <>
-                  {availableFolders.length > 0 && (
+                  {(availableFoldersFlat.length > 0) && (
                     <div className="flex items-center gap-2">
                       <select
                         value={selectedFolderId || ''}
@@ -673,12 +689,11 @@ export function LegalEditor() {
                         className="w-full text-sm border border-blue-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">📁 Pasta Principal</option>
-                        {availableFolders.map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            📁 {folder.name}
-                          </option>
+                        {availableFoldersFlat.map((f) => (
+                          <option key={f.id} value={f.id}>📁 {f.label}</option>
                         ))}
                       </select>
+                      <Button size="sm" variant="outline" onClick={() => setShowOpenSavedModal(true)}>Abrir documento salvo</Button>
                     </div>
                   )}
                   <p className="text-xs text-blue-600 mt-1">Salvando em: {selectedFolderPathLabel}</p>
@@ -912,6 +927,26 @@ export function LegalEditor() {
           clientId={selectedContext.clientId}
           selectedFolderId={selectedFolderId}
           onSelect={(folderId) => setSelectedFolderId(folderId)}
+        />
+      )}
+
+      {selectedContext && (
+        <ClientFileOpenModal
+          isOpen={showOpenSavedModal}
+          onClose={() => setShowOpenSavedModal(false)}
+          clientId={selectedContext.clientId}
+          initialFolderId={selectedFolderId}
+          onOpen={(file) => {
+            // Carrega conteúdo do arquivo salvo no editor
+            try {
+              setContent(file.content || '')
+              setSelectedFolderId(file.folderId)
+              alert(`Documento "${file.name}" aberto com sucesso.`)
+            } catch (err) {
+              console.error('Erro ao abrir arquivo salvo:', err)
+              alert('Erro ao abrir o documento salvo.')
+            }
+          }}
         />
       )}
     </div>
