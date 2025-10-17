@@ -23,7 +23,7 @@ import { StatisticsModal } from '@/components/editor/StatisticsModal'
 import { useClient } from '@/hooks/useClients'
 import type { Process, Contract, EditorSuggestion } from '@/types'
 import { aiEngine } from '@/services/aiEngine'
-import { ensureClientFolder, saveClientFile, listClientFolders, getFolderPath, type StoredFolder } from '@/services/storageService'
+import { ensureClientFolder, saveClientFile, listClientFolders, getFolderPath } from '@/services/storageService'
 import { uploadToPJE } from '@/services/pjeService'
 import { TranscriptionModal } from '@/components/editor/TranscriptionModal'
 import { FolderSelectModal } from '@/components/editor/FolderSelectModal'
@@ -57,7 +57,6 @@ export function LegalEditor() {
   const [wordCount, setWordCount] = useState(0)
   const [characterCount, setCharacterCount] = useState(0)
   const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined)
-  const [availableFolders, setAvailableFolders] = useState<StoredFolder[]>([])
   const [availableFoldersFlat, setAvailableFoldersFlat] = useState<{ id: string, label: string }[]>([])
   const [showFolderSelect, setShowFolderSelect] = useState(false)
   const [showOpenSavedModal, setShowOpenSavedModal] = useState(false)
@@ -88,9 +87,7 @@ export function LegalEditor() {
   // Load available folders when context changes
   useEffect(() => {
     if (selectedContext?.clientId) {
-      const folders = listClientFolders(selectedContext.clientId)
-      setAvailableFolders(folders)
-
+      // Carregar pastas do cliente e gerar lista achatada para o dropdown
       // Flatten all nested folders for dropdown
       const flatten = (clientId: string, parentId: string | undefined, prefix: string): { id: string, label: string }[] => {
         const subs = listClientFolders(clientId, parentId)
