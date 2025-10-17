@@ -100,7 +100,14 @@ export function ContractForm({ contract, isEdit = false }: ContractFormProps) {
       }
       navigate('/contracts')
     } catch (error) {
-      console.error('Erro ao salvar contrato:', error)
+      const err: any = error
+      const message =
+        (err && (err.message || err.error_description || err.error)) ||
+        (error instanceof Error ? error.message : '') ||
+        'Erro desconhecido'
+      const details = err?.details || err?.hint || ''
+      const code = err?.code || ''
+      console.error('Erro ao salvar contrato:', { message, code, details, raw: err })
     }
   }
 
