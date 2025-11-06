@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
 // import { useNavigate } from 'react-router-dom' // Removido pois não está sendo usado
 import { useAuth } from '@/hooks/useAuth'
 import { Badge } from '@/components/ui/Badge'
@@ -121,47 +122,68 @@ export function LegalEditor() {
     // A geração de sugestões reais ocorre via efeito com debounce
   }
 
-  // Buscar sugestões com debounce usando IA local
+  // Buscar sugestões com debounce usando a mutação
   useEffect(() => {
-    if (!isPro) return
-    const text = content.trim()
+    if (!isPro) return;
+    const text = content.trim();
     if (text.length < 10) {
-      setSuggestions([])
-      return
+      setSuggestions([]);
+      return;
     }
 
-    const timeout = setTimeout(async () => {
-      try {
-        let contextStr: string | undefined = undefined
-        if (selectedContext) {
-          if ('status' in selectedContext) {
-            const process = selectedContext as Process
-            contextStr = `process:${process.type}`
-          } else {
-            const contract = selectedContext as Contract
-            contextStr = `contract:${contract.type}`
-          }
-        }
-
-        const payload = {
-          text: text.slice(-500),
-          context: contextStr,
-          topics: selectedTopics.length > 0 ? selectedTopics : undefined,
-        }
-
-        const result = await aiEngine.getEditorSuggestions(payload)
-        setSuggestions(result)
-      } catch (err: any) {
-        // Fallback para sugestões contextuais locais
-        const mock = generateContextualSuggestions(text, selectedContext)
-        setSuggestions(mock)
-      }
-    }, 350)
+    const timeout = setTimeout(() => {
+      fetchSuggestions(text);
+    }, 500); // Debounce de 500ms
 
     return () => {
-      clearTimeout(timeout)
-    }
-  }, [content, isPro, selectedContext, selectedTopics])
+      clearTimeout(timeout);
+    };
+  }, [content, isPro, fetchSuggestions]);
+
+  const { mutate: fetchSuggestions, isLoading: isFetchingSuggestions } = useMutation({
+    mutationFn: async (text: string) => {
+      let contextStr: string | undefined = undefined;
+      if (selectedContext) {
+        if ('status' in selectedContext) {
+          const process = selectedContext as Process;
+          contextStr = `process:${process.type}`;
+        } else {
+          const contract = selectedContext as Contract;
+          contextStr = `contract:${contract.type}`;
+        }
+      }
+
+      const payload = {
+        text: text.slice(-500),
+        context: contextStr,
+        topics: selectedTopics.length > 0 ? selectedTopics : undefined,
+      };
+
+      const response = await fetch('/api/ai/editor-assist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar sugestões de IA');
+      }
+
+      const data = await response.json();
+      return data.suggestions;
+    },
+    onSuccess: (data) => {
+      setSuggestions(data);
+    },
+    onError: () => {
+      // Em caso de erro, usar o fallback
+      const text = content.trim();
+      const mock = generateContextualSuggestions(text, selectedContext);
+      setSuggestions(mock);
+    },
+  });
 
   const generateContextualSuggestions = (_text: string, context: Process | Contract | null): EditorSuggestion[] => {
     const baseSuggestions: EditorSuggestion[] = [
@@ -822,7 +844,11 @@ export function LegalEditor() {
                       })}
                     </div>
                   </div>
-                  {suggestions.length > 0 ? (
+                  {isFetchingSuggestions ? (
+                    <div className="text-sm text-blue-600 text-center py-4 bg-white rounded-md border border-blue-100">
+                      Analisando o texto...
+                    </div>
+                  ) : suggestions.length > 0 ? (
                     <div className="space-y-2">
                       {(suggestionFilter === 'correction' ? suggestions.filter(s => s.type === 'correction') : suggestions).slice(0, 3).map((suggestion) => (
                         <div

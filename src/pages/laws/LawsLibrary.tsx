@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Search, BookOpen, FileText, Calendar, Filter, Download, Plus, Upload, X, ExternalLink, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -11,9 +12,7 @@ export function LawsLibrary() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [selectedType, setSelectedType] = useState<string>('')
-  const [laws, setLaws] = useState<Law[]>([])
   const [selectedLaw, setSelectedLaw] = useState<Law | null>(null)
-  const [articles, setArticles] = useState<LawArticle[]>([])
   const [selectedArticle, setSelectedArticle] = useState<LawArticle | null>(null)
   const [showAddLawModal, setShowAddLawModal] = useState(false)
   const [showAddArticleModal, setShowAddArticleModal] = useState(false)
@@ -33,6 +32,30 @@ export function LawsLibrary() {
     keywords: ''
   })
   const [copiedArticleId, setCopiedArticleId] = useState<string | null>(null)
+  const [aiResults, setAiResults] = useState<any[]>([]);
+  const queryClient = useQueryClient();
+
+  const { mutate: searchWithAI, isLoading: isSearchingWithAI } = useMutation({
+    mutationFn: async (query: string) => {
+      const response = await fetch('/api/ai/vademecum-query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar com IA');
+      }
+
+      const data = await response.json();
+      return data.results;
+    },
+    onSuccess: (data) => {
+      setAiResults(data);
+    },
+  });
 
   const categories = [
     { value: '', label: 'Todas as categorias' },
@@ -54,25 +77,25 @@ export function LawsLibrary() {
     { value: 'constitutional', label: 'Constitucional' }
   ]
 
-  useEffect(() => {
-    const provider = resolveLawProvider()
-    let active = true
-    ;(async () => {
-      const results = await provider.searchLaws(searchQuery, { category: selectedCategory, type: selectedType })
-      if (active) setLaws(results)
-    })()
-    return () => { active = false }
-  }, [searchQuery, selectedCategory, selectedType])
+  const { data: laws, isLoading: isLoadingLaws } = useQuery({
+    queryKey: ['laws', searchQuery, selectedCategory, selectedType],
+    queryFn: () => {
+      const provider = resolveLawProvider();
+      return provider.searchLaws(searchQuery, { category: selectedCategory, type: selectedType });
+    },
+    initialData: [],
+  });
 
-  useEffect(() => {
-    const provider = resolveLawProvider()
-    let active = true
-    ;(async () => {
-      const results = await provider.searchArticles(searchQuery, selectedLaw?.id)
-      if (active) setArticles(results)
-    })()
-    return () => { active = false }
-  }, [selectedLaw, searchQuery])
+  const { data: articles, isLoading: isLoadingArticles } = useQuery({
+    queryKey: ['articles', selectedLaw?.id, searchQuery],
+    queryFn: () => {
+      if (!selectedLaw) return [];
+      const provider = resolveLawProvider();
+      return provider.searchArticles(searchQuery, selectedLaw.id);
+    },
+    enabled: !!selectedLaw,
+    initialData: [],
+  });
 
   const handleLawSelect = (law: Law) => {
     setSelectedLaw(law)
@@ -117,10 +140,8 @@ export function LawsLibrary() {
       })
       setShowAddLawModal(false)
       
-      // Recarregar leis
-      const provider = resolveLawProvider()
-      provider.searchLaws(searchQuery, { category: selectedCategory, type: selectedType })
-        .then(setLaws)
+      // Invalida a query de leis para forçar o refetch
+      queryClient.invalidateQueries({ queryKey: ['laws'] });
     }
   }
 
@@ -208,10 +229,8 @@ export function LawsLibrary() {
       })
       setShowAddArticleModal(false)
       
-      // Recarregar artigos
-      const provider = resolveLawProvider()
-      provider.searchArticles(searchQuery, selectedLaw.id)
-        .then(setArticles)
+      // Invalida a query de artigos para forçar o refetch
+      queryClient.invalidateQueries({ queryKey: ['articles', selectedLaw.id] });
     }
   }
 
@@ -327,9 +346,14 @@ export function LawsLibrary() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
               <Input
-                placeholder="Pesquisar leis e artigos..."
+                placeholder="Pesquisar leis e artigos... (Pressione Enter para busca com IA)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery.trim().length > 0) {
+                    searchWithAI(searchQuery);
+                  }
+                }}
                 className="pl-10"
               />
             </div>
@@ -368,6 +392,34 @@ export function LawsLibrary() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Search Results */}
+      {isSearchingWithAI && (
+        <div className="text-center py-4 text-gray-500">
+          <p>Buscando com IA...</p>
+        </div>
+      )}
+      {aiResults.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Resultados da Busca com IA</CardTitle>
+            <CardDescription>Resultados encontrados com base na relevância semântica.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {aiResults.map((result, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <CardTitle>{result.law} - {result.article}</CardTitle>
+                  <CardDescription>Relevância: {result.relevance}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p>{result.summary}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

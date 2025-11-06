@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, FileText, Calendar, DollarSign, User, CheckSquare, MessageSquare, Users, FolderOpen } from 'lucide-react'
+import { ArrowLeft, Edit, FileText, Calendar, DollarSign, User, CheckSquare, MessageSquare, Users, FolderOpen, Zap } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 import { PrintButton } from '@/components/ui/PrintButton'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -12,16 +13,49 @@ import { TeamManagerModal } from '@/components/collaboration/TeamManager'
 import { RelationshipsPanel } from '@/components/relationships/RelationshipsPanel'
 import { useContracts } from '@/hooks/useContracts'
 import { formatCurrency, formatDate, getContractTypeLabel, getContractStatusLabel, getStatusColor } from '@/lib/utils'
+import { AnalysisModal } from '@/components/analysis/AnalysisModal'
 
 export function ContractDetails() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { data: contracts = [] } = useContracts()
   const [showTasksModal, setShowTasksModal] = useState(false)
   const [showCollaborationModal, setShowCollaborationModal] = useState(false)
   const [showTeamManagerModal, setShowTeamManagerModal] = useState(false)
-  
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState<any>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+
   const contract = (contracts as any[]).find((c: any) => c.id === id)
+
+  const handleAnalyze = async () => {
+    if (!contract) return;
+
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch('/api/ai/analyze-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ documentContent: contract.description }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao analisar o documento');
+      }
+
+      const data = await response.json();
+      setAnalysisResult(data);
+      setShowAnalysisModal(true);
+    } catch (error) {
+      console.error(error);
+      alert('Não foi possível analisar o documento. Tente novamente.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   if (!contract) {
     return (
@@ -124,6 +158,23 @@ export function ContractDetails() {
             <span className="hidden sm:inline">Editar</span>
             <span className="sm:hidden">Editar</span>
           </Button>
+          {user?.plan === 'pro' && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleAnalyze}
+              disabled={isAnalyzing}
+              className="flex-shrink-0"
+            >
+              <Zap className="w-4 h-4 mr-1 sm:mr-2" />
+              {isAnalyzing ? (
+                <span className="hidden sm:inline">Analisando...</span>
+              ) : (
+                <span className="hidden sm:inline">Analisar com IA</span>
+              )}
+              <span className="sm:hidden">Analisar</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -263,6 +314,13 @@ export function ContractDetails() {
       <TeamManagerModal
         isOpen={showTeamManagerModal}
         onClose={() => setShowTeamManagerModal(false)}
+      />
+
+      {/* Analysis Modal */}
+      <AnalysisModal
+        isOpen={showAnalysisModal}
+        onClose={() => setShowAnalysisModal(false)}
+        analysisResult={analysisResult}
       />
     </div>
   )

@@ -22,6 +22,7 @@ import { SupplierDetails } from '@/pages/suppliers/SupplierDetails'
 import { LegalEditor } from '@/pages/editor/LegalEditor'
 import { LawsLibrary } from '@/pages/laws/LawsLibrary'
 import { Profile } from '@/pages/profile/Profile'
+import SubscriptionPage from '@/pages/subscription/SubscriptionPage'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -208,6 +209,14 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Profile />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/subscription" element={
+              <ProtectedRoute>
+                <Layout>
+                  <SubscriptionPage />
                 </Layout>
               </ProtectedRoute>
             } />

@@ -1,9 +1,12 @@
 import '@testing-library/jest-dom'
 import { beforeAll, afterEach, afterAll } from 'vitest'
 import { server } from '../mocks/server'
+import dotenv from 'dotenv'
+
+dotenv.config({ path: '.env.test' });
 
 // Start server before all tests
-beforeAll(() => server.listen())
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 
 // Reset handlers after each test
 afterEach(() => server.resetHandlers())
