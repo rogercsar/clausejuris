@@ -610,4 +610,107 @@ export const handlers = [
     
     return HttpResponse.json({ success: true, user })
   }),
+
+  // Subscription endpoints
+  http.post('/api/subscription/create-preference', async ({ request }) => {
+    const { plan } = await request.json() as { plan: 'common' | 'pro' };
+
+    if (!plan || (plan !== 'common' && plan !== 'pro')) {
+      return HttpResponse.json({ error: 'Plano inválido' }, { status: 400 });
+    }
+
+    // Mock de uma preferência de pagamento do Mercado Pago
+    const preference = {
+      id: `pref_${new Date().getTime()}`,
+      items: [
+        {
+          title: `Plano ${plan === 'common' ? 'Comum' : 'Pró'}`,
+          quantity: 1,
+          unit_price: plan === 'common' ? 30 : 80,
+        },
+      ],
+      payer: {
+        email: 'test_user_12345@testuser.com',
+      },
+      back_urls: {
+        success: 'http://localhost:3000/subscription/success',
+        failure: 'http://localhost:3000/subscription/failure',
+        pending: 'http://localhost:3000/subscription/pending',
+      },
+      auto_return: 'approved',
+      // Este é o URL que o frontend usará para redirecionar o usuário para o checkout
+      init_point: `https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=mock_pref_${plan}`,
+    };
+
+    return HttpResponse.json(preference);
+  }),
+
+  // AI endpoints
+  http.post('/api/ai/analyze-document', async ({ request }) => {
+    const { documentContent } = await request.json() as { documentContent: string };
+
+    if (!documentContent) {
+      return HttpResponse.json({ error: 'Conteúdo do documento é obrigatório' }, { status: 400 });
+    }
+
+    // Simula uma análise de IA
+    const analysis = {
+      summary: 'Este é um resumo gerado por IA do documento fornecido.',
+      risks: [
+        { level: 'high', description: 'Cláusula de rescisão abusiva.' },
+        { level: 'medium', description: 'Prazo de pagamento pouco claro.' },
+      ],
+      suggestions: [
+        'Revisar a cláusula de rescisão para torná-la mais equilibrada.',
+        'Especificar as datas de vencimento no prazo de pagamento.',
+      ],
+    };
+
+    return HttpResponse.json(analysis);
+  }),
+
+  http.post('/api/ai/editor-assist', async ({ request }) => {
+    const { text, context } = await request.json() as { text: string; context?: string };
+
+    const suggestions = [
+      {
+        type: 'autocomplete',
+        text: 'Conforme o Art. 482 da CLT...',
+        description: 'Sugestão de jurisprudência',
+      },
+      {
+        type: 'correction',
+        text: 'corrije',
+        replacement: 'corrige',
+        description: 'Correção ortográfica',
+      },
+    ];
+
+    return HttpResponse.json({ suggestions });
+  }),
+
+  http.post('/api/ai/vademecum-query', async ({ request }) => {
+    const { query } = await request.json() as { query: string };
+
+    if (!query) {
+      return HttpResponse.json({ error: 'A consulta é obrigatória' }, { status: 400 });
+    }
+
+    const results = [
+      {
+        law: 'Código Civil',
+        article: 'Art. 1.723',
+        summary: 'Define a união estável como entidade familiar...',
+        relevance: 0.95,
+      },
+      {
+        law: 'CLT',
+        article: 'Art. 482',
+        summary: 'Descreve as hipóteses de justa causa para rescisão do contrato de trabalho.',
+        relevance: 0.88,
+      },
+    ];
+
+    return HttpResponse.json({ results });
+  }),
 ]
