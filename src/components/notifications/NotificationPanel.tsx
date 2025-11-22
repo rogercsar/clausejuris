@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { Bell, Check, Trash2, Clock, AlertTriangle, FileText, DollarSign, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -150,12 +151,25 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
     }
   }
 
-  const filteredNotifications = notifications.filter(n => {
+  const filteredNotifications = notifications
+    .slice()
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .filter(n => {
     const matchesRead = filter === 'unread' ? !n.isRead : true
     const matchesType = typeFilter ? n.type === typeFilter : true
     const matchesPriority = priorityFilter ? n.priority === priorityFilter : true
     return matchesRead && matchesType && matchesPriority
   })
+
+  const groupedByDay = useMemo(() => {
+    const groups: Record<string, any[]> = {}
+    filteredNotifications.forEach(n => {
+      const key = new Date(n.createdAt).toISOString().split('T')[0]
+      groups[key] = groups[key] || []
+      groups[key].push(n)
+    })
+    return Object.entries(groups).sort((a, b) => (a[0] < b[0] ? 1 : -1))
+  }, [filteredNotifications])
 
   const handleMarkAsRead = async (notificationId: string) => {
     await markAsRead(notificationId)
@@ -164,6 +178,8 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
   const handleDelete = async (notificationId: string) => {
     await deleteNotification(notificationId)
   }
+
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -261,86 +277,100 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
                 </CardContent>
               </Card>
             ) : (
-              filteredNotifications.map((notification) => (
-                <Card 
-                  key={notification.id} 
-                  className={`transition-colors ${
-                    !notification.isRead ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-1">
-                        {getTypeIcon(notification.type)}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <h4 className={`font-medium text-sm ${
-                              !notification.isRead ? 'text-blue-900' : 'text-gray-900'
-                            }`}>
-                              {notification.title}
-                            </h4>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {notification.message}
-                            </p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="text-xs text-gray-500">
-                                {notification.entityName}
-                              </span>
-                              <span className="text-xs text-gray-400">•</span>
-                              <span className="text-xs text-gray-500">
-                                {formatDate(notification.createdAt)}
-                              </span>
-                            </div>
+              groupedByDay.map((entry) => {
+                const day = entry[0]
+                const items = entry[1]
+                return (
+                <div key={day}>
+                  <div className="text-xs font-semibold text-secondary-700 mb-2">{new Date(day).toLocaleDateString('pt-BR')}</div>
+                  {items.map((notification) => (
+                    <Card 
+                      key={notification.id} 
+                      className={`transition-colors ${
+                        !notification.isRead ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 mt-1">
+                            {getTypeIcon(notification.type)}
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${getTypeColor(notification.type)}`}
-                            >
-                              {getTypeIcon(notification.type)}
-                              <span className="ml-1">{formatTypeLabel(notification.type)}</span>
-                            </Badge>
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${getPriorityColor(notification.priority)}`}
-                            >
-                              {getPriorityIcon(notification.priority)}
-                              <span className="ml-1 capitalize">{notification.priority}</span>
-                            </Badge>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <h4 className={`font-medium text-sm ${
+                                  !notification.isRead ? 'text-blue-900' : 'text-gray-900'
+                                }`}>
+                                  {notification.title}
+                                </h4>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="text-xs text-gray-500">
+                                    {notification.entityName}
+                                  </span>
+                                  <span className="text-xs text-gray-400">•</span>
+                                  <span className="text-xs text-gray-500">
+                                    {formatDate(notification.createdAt)}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${getTypeColor(notification.type)}`}
+                                >
+                                  {getTypeIcon(notification.type)}
+                                  <span className="ml-1">{formatTypeLabel(notification.type)}</span>
+                                </Badge>
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${getPriorityColor(notification.priority)}`}
+                                >
+                                  {getPriorityIcon(notification.priority)}
+                                  <span className="ml-1 capitalize">{notification.priority}</span>
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 mt-3">
+                              {!notification.isRead && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleMarkAsRead(notification.id)}
+                                >
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Marcar como lida
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(notification.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Excluir
+                              </Button>
+                              {(notification.entityType === 'process' || notification.entityType === 'contract') && (
+                                <Link to={`/${notification.entityType === 'process' ? 'processes' : 'contracts'}/${notification.entityId}`}>
+                                  <Button variant="outline" size="sm">Abrir</Button>
+                                </Link>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 mt-3">
-                          {!notification.isRead && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleMarkAsRead(notification.id)}
-                            >
-                              <Check className="w-3 h-3 mr-1" />
-                              Marcar como lida
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(notification.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                )
+              })
             )}
           </div>
 

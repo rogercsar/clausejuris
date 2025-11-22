@@ -1,9 +1,10 @@
 import type { EditorSuggestion } from '@/types'
+import { resolveLawProvider } from './lawProvider'
 
 type SuggestParams = { text: string; context?: string; topics?: string[] }
 
 export const aiEngine = {
-  getEditorSuggestions({ text, context, topics = [] }: SuggestParams): Promise<EditorSuggestion[]> {
+  async getEditorSuggestions({ text, context, topics = [] }: SuggestParams): Promise<EditorSuggestion[]> {
     const base: EditorSuggestion[] = [
       {
         id: '1',
@@ -109,11 +110,27 @@ export const aiEngine = {
       })
     }
 
-    const suggestions = [...base, ...contextual]
-    return Promise.resolve(suggestions)
+    const provider = resolveLawProvider()
+    const q = (text || '').toLowerCase().replace(/\n+/g, ' ').slice(-300)
+    let lawSnippets: EditorSuggestion[] = []
+    try {
+      const articles = await provider.searchArticles(q)
+      lawSnippets = articles.slice(0, 3).map((a, idx) => ({
+        id: `law-${a.id || idx}`,
+        type: 'snippet',
+        text: a.title,
+        replacement: `${a.title}: ${a.content}`,
+        description: 'Citação sugerida',
+        confidence: 0.85,
+      }))
+    } catch {
+      lawSnippets = []
+    }
+    const suggestions = [...base, ...contextual, ...lawSnippets]
+    return suggestions
   },
 
-  generateDraft({ text, context, topics = [] }: SuggestParams): Promise<{ draft: string }> {
+  async generateDraft({ text, context, topics = [] }: SuggestParams): Promise<{ draft: string }> {
     const title = context?.startsWith('contract')
       ? 'Minuta de Contrato'
       : context?.startsWith('process')
@@ -153,6 +170,18 @@ export const aiEngine = {
       ? `Contexto do usuário: ${text.trim().slice(-300)}`
       : 'Minuta gerada automaticamente com base em contexto e tópicos selecionados.'
 
+    let citations = ''
+    try {
+      const provider = resolveLawProvider()
+      const q = (text || '').toLowerCase().replace(/\n+/g, ' ').slice(-300)
+      const articles = await provider.searchArticles(q)
+      const selected = articles.slice(0, 3)
+      if (selected.length > 0) {
+        citations = ['Referências legais:', '', ...selected.map(a => `- ${a.title}`)].join('\n')
+      }
+    } catch {
+      citations = ''
+    }
     const draft = [
       title,
       '',
@@ -160,10 +189,12 @@ export const aiEngine = {
       '',
       ...sections,
       '',
-      'Assinaturas: As partes firmam o presente em 2 (duas) vias de igual teor.'
+      'Assinaturas: As partes firmam o presente em 2 (duas) vias de igual teor.',
+      '',
+      citations
     ].join('\n')
 
-    return Promise.resolve({ draft })
+    return { draft }
   }
 }
 

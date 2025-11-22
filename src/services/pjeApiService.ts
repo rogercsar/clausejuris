@@ -168,6 +168,8 @@ function createInProgressResponse(result: any): PJeApiResponse {
 
 // API Service
 export class PJeApiService {
+  private cache = new Map<string, { ts: number; data: any }>()
+  private ttlMs = 10000
 
   constructor(_baseUrl: string = 'https://api.pje.jus.br/v1') {
     // baseUrl is not used in mock implementation
@@ -207,6 +209,32 @@ export class PJeApiService {
     } catch (error) {
       return createErrorResponse('500', ['Erro interno do servidor'])
     }
+  }
+
+  async searchByNumero(numero: string): Promise<PJeApiResponse<Processo[]>> {
+    const key = `num:${numero}`
+    const now = Date.now()
+    const cached = this.cache.get(key)
+    if (cached && now - cached.ts < this.ttlMs) {
+      return createSuccessResponse(cached.data)
+    }
+    await new Promise(resolve => setTimeout(resolve, 200))
+    const result = processos.filter(p => p.numero === numero)
+    this.cache.set(key, { ts: now, data: result })
+    return createSuccessResponse(result)
+  }
+
+  async searchByCpf(cpf: string): Promise<PJeApiResponse<Processo[]>> {
+    const key = `cpf:${cpf}`
+    const now = Date.now()
+    const cached = this.cache.get(key)
+    if (cached && now - cached.ts < this.ttlMs) {
+      return createSuccessResponse(cached.data)
+    }
+    await new Promise(resolve => setTimeout(resolve, 200))
+    const result = processos.filter(p => p['partes-cpf'] === cpf)
+    this.cache.set(key, { ts: now, data: result })
+    return createSuccessResponse(result)
   }
 
   // Parse query string filter format
