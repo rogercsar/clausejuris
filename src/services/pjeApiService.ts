@@ -54,7 +54,7 @@ export interface OrgaoJulgador {
 }
 
 // Mock data
-let processos: Processo[] = [
+const processos: Processo[] = [
   {
     id: '1',
     numero: '0001234-56.2018.2.00.0000',
@@ -105,7 +105,7 @@ let processos: Processo[] = [
   }
 ]
 
-let documentos: Documento[] = [
+const documentos: Documento[] = [
   {
     id: '1',
     nome: 'Petição Inicial.pdf',
@@ -124,7 +124,7 @@ let documentos: Documento[] = [
   }
 ]
 
-let orgaosJulgadores: OrgaoJulgador[] = [
+const orgaosJulgadores: OrgaoJulgador[] = [
   {
     id: '1',
     nome: 'GAB. DESEMB. FULANO DE TAL',
@@ -341,7 +341,7 @@ export class PJeApiService {
   }
 
   // DELETE /processos/:id - Exclui processo específico
-  async deleteProcesso(id: string): Promise<PJeApiResponse<{}>> {
+  async deleteProcesso(id: string): Promise<PJeApiResponse<Record<string, never>>> {
     try {
       await new Promise(resolve => setTimeout(resolve, 300))
       
@@ -352,7 +352,7 @@ export class PJeApiService {
 
       processos.splice(index, 1)
       
-      return createSuccessResponse({})
+      return createSuccessResponse({} as Record<string, never>)
     } catch (error) {
       return createErrorResponse('500', ['Erro ao excluir processo'])
     }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { useRegister } from '@/hooks/useAuth'
+import { useRegister, useAuth } from '@/hooks/useAuth'
 import type { UserPlan } from '@/types'
 
 export function Register() {
@@ -25,6 +25,13 @@ export function Register() {
   
   const navigate = useNavigate()
   const registerMutation = useRegister()
+  const { isAuthenticated } = useAuth()
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/')
+    }
+  }, [isAuthenticated, navigate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target

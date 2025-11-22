@@ -10,6 +10,7 @@ import type {
   EditorSuggestion,
   CrossReference
 } from '@/types'
+import { notificationService } from '@/services/notificationService'
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api'
 
@@ -39,10 +40,45 @@ class ApiClient {
       headers.Authorization = `Bearer ${this.token}`
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
+    const maxRetries = 2
+    const baseDelayMs = 250
+    let attempt = 0
+    let response: Response | null = null
+    let lastError: any = null
+
+    while (attempt <= maxRetries) {
+      try {
+        response = await fetch(url, {
+          ...options,
+          headers,
+        })
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        break
+      } catch (err: any) {
+        lastError = err
+        if (attempt === maxRetries) break
+        const jitter = Math.random() * 100
+        const delay = baseDelayMs * Math.pow(2, attempt) + jitter
+        await new Promise(r => setTimeout(r, delay))
+        attempt++
+      }
+    }
+
+    if (!response) {
+      await notificationService.createNotification({
+        type: 'custom',
+        title: 'Falha de rede',
+        message: `Não foi possível conectar-se à API em ${endpoint}`,
+        entityId: '',
+        entityType: 'contract',
+        entityName: 'Sistema',
+        priority: 'high',
+        metadata: { customData: { endpoint } }
+      })
+      throw lastError || new Error('Erro na requisição')
+    }
 
     if (!response.ok) {
       const contentType = response.headers.get('content-type') || ''
@@ -58,6 +94,16 @@ class ApiClient {
       } catch (_) {
         // ignore parse errors
       }
+      await notificationService.createNotification({
+        type: 'custom',
+        title: 'Erro na API',
+        message: message,
+        entityId: '',
+        entityType: 'contract',
+        entityName: 'Sistema',
+        priority: 'medium',
+        metadata: { customData: { endpoint, status: response.status } }
+      })
       throw new Error(message)
     }
 

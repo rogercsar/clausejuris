@@ -124,12 +124,9 @@ export function useNotifications() {
 
   // Load initial data
   useEffect(() => {
-    // Load from Supabase when available, fallback to local storage
     loadNotifications()
     loadSettings()
     loadRules()
-    // Intencionalmente não adicionamos dependências para carregar apenas uma vez
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Real-time updates via Supabase

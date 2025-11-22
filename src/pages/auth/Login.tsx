@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Logo } from '@/components/ui/Logo'
-import { useLogin } from '@/hooks/useAuth'
+import { useLogin, useAuth } from '@/hooks/useAuth'
 
 export function Login() {
   const [formData, setFormData] = useState({
@@ -17,6 +17,13 @@ export function Login() {
   
   const navigate = useNavigate()
   const loginMutation = useLogin()
+  const { isAuthenticated } = useAuth()
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/')
+    }
+  }, [isAuthenticated, navigate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target

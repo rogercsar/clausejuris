@@ -16,10 +16,11 @@ import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { ContextSelector } from '@/components/editor/ContextSelector'
 import { ContextInfo } from '@/components/editor/ContextInfo'
 import { EditorToolbar } from '@/components/editor/EditorToolbar'
-import { EnhancedLawsModal } from '@/components/editor/EnhancedLawsModal'
-import { TemplatesModal } from '@/components/editor/TemplatesModal'
-import { RecentLawsModal } from '@/components/editor/RecentLawsModal'
-import { StatisticsModal } from '@/components/editor/StatisticsModal'
+import React, { Suspense } from 'react'
+const EnhancedLawsModal = React.lazy(() => import('@/components/editor/EnhancedLawsModal').then(m => ({ default: m.EnhancedLawsModal })))
+const TemplatesModal = React.lazy(() => import('@/components/editor/TemplatesModal').then(m => ({ default: m.TemplatesModal })))
+const RecentLawsModal = React.lazy(() => import('@/components/editor/RecentLawsModal').then(m => ({ default: m.RecentLawsModal })))
+const StatisticsModal = React.lazy(() => import('@/components/editor/StatisticsModal').then(m => ({ default: m.StatisticsModal })))
 import { useClient } from '@/hooks/useClients'
 import type { Process, Contract, EditorSuggestion } from '@/types'
 import { aiEngine } from '@/services/aiEngine'
@@ -882,34 +883,36 @@ export function LegalEditor() {
       </div>
 
       {/* Modals */}
-      <EnhancedLawsModal
-        isOpen={showLawsModal}
-        onClose={() => setShowLawsModal(false)}
-        onInsertLaw={handleInsertLaw}
-        context={selectedContext}
-      />
+      <Suspense fallback={<div className="p-4 text-center text-secondary-600">Carregando...</div>}>
+        <EnhancedLawsModal
+          isOpen={showLawsModal}
+          onClose={() => setShowLawsModal(false)}
+          onInsertLaw={handleInsertLaw}
+          context={selectedContext}
+        />
       
-      <TemplatesModal
-        isOpen={showTemplatesModal}
-        onClose={() => setShowTemplatesModal(false)}
-        onTemplateSelect={handleTemplateSelect}
-        context={selectedContext}
-      />
+        <TemplatesModal
+          isOpen={showTemplatesModal}
+          onClose={() => setShowTemplatesModal(false)}
+          onTemplateSelect={handleTemplateSelect}
+          context={selectedContext}
+        />
       
-      <RecentLawsModal
-        isOpen={showRecentLawsModal}
-        onClose={() => setShowRecentLawsModal(false)}
-        onLawSelect={handleLawSelect}
-        context={selectedContext}
-      />
+        <RecentLawsModal
+          isOpen={showRecentLawsModal}
+          onClose={() => setShowRecentLawsModal(false)}
+          onLawSelect={handleLawSelect}
+          context={selectedContext}
+        />
       
-      <StatisticsModal
-        isOpen={showStatisticsModal}
-        onClose={() => setShowStatisticsModal(false)}
-        wordCount={wordCount}
-        characterCount={characterCount}
-        context={selectedContext}
-      />
+        <StatisticsModal
+          isOpen={showStatisticsModal}
+          onClose={() => setShowStatisticsModal(false)}
+          wordCount={wordCount}
+          characterCount={characterCount}
+          context={selectedContext}
+        />
+      </Suspense>
 
       <TranscriptionModal
         isOpen={showTranscriptionModal}
