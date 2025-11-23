@@ -227,5 +227,53 @@ export function getFolderPath(clientId: string, folderId: string): StoredFolder[
   return path
 }
 
+// AI History
+export type AiHistoryEntry = {
+  id: string
+  type: 'suggestion' | 'draft'
+  text: string
+  context?: string
+  clientId?: string
+  createdAt: string
+}
+
+const AI_HISTORY_KEY = 'clause_ai_history'
+
+function loadHistory(): AiHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(AI_HISTORY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveHistory(entries: AiHistoryEntry[]) {
+  localStorage.setItem(AI_HISTORY_KEY, JSON.stringify(entries))
+}
+
+export function addAiHistory(entry: Omit<AiHistoryEntry, 'id' | 'createdAt'>): AiHistoryEntry {
+  const now = new Date().toISOString()
+  const stored: AiHistoryEntry = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, createdAt: now, ...entry }
+  const all = loadHistory()
+  all.unshift(stored)
+  saveHistory(all.slice(0, 500))
+  return stored
+}
+
+export function getAiHistory(limit = 50): AiHistoryEntry[] {
+  return loadHistory().slice(0, limit)
+}
+
+export function getAiHistorySummary(limit = 20): string {
+  const entries = getAiHistory(limit)
+  const lines = entries.map(e => {
+    const ctx = e.context ? ` [${e.context}]` : ''
+    const cid = e.clientId ? ` (cliente ${e.clientId})` : ''
+    return `${e.type}${ctx}${cid}: ${e.text.slice(0, 280)}`
+  })
+  return lines.join('\n')
+}
+
 
 

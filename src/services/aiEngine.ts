@@ -1,5 +1,6 @@
 import type { EditorSuggestion } from '@/types'
 import { resolveLawProvider } from './lawProvider'
+import { getAiHistorySummary, addAiHistory } from './storageService'
 
 const GEMINI_URL = import.meta.env.VITE_GEMINI_URL as string | undefined
 
@@ -13,6 +14,7 @@ async function callGemini(payload: { text: string; context?: string; topics?: st
         text: payload.text,
         context: payload.context || '',
         topics: Array.isArray(payload.topics) ? payload.topics : [],
+        history: getAiHistorySummary(20),
       }),
     })
     if (!res.ok) return null
@@ -223,6 +225,7 @@ export const aiEngine = {
   async generateDraft({ text, context, topics = [] }: SuggestParams): Promise<{ draft: string }> {
     const remote = await callGemini({ text, context, topics })
     if (remote && typeof remote.draft === 'string' && remote.draft.trim().length > 0) {
+      addAiHistory({ type: 'draft', text: remote.draft, context })
       return { draft: remote.draft }
     }
     const title = context?.startsWith('contract')

@@ -24,6 +24,7 @@ const StatisticsModal = React.lazy(() => import('@/components/editor/StatisticsM
 import { useClient } from '@/hooks/useClients'
 import type { Process, Contract, EditorSuggestion } from '@/types'
 import { aiEngine } from '@/services/aiEngine'
+import { addAiHistory } from '@/services/storageService'
 import { ensureClientFolder, saveClientFile, listClientFolders, getFolderPath } from '@/services/storageService'
 import { uploadToPJE } from '@/services/pjeService'
 import { TranscriptionModal } from '@/components/editor/TranscriptionModal'
@@ -336,6 +337,9 @@ export function LegalEditor() {
     } else {
       setContent(prev => prev + (prev.endsWith('\n') ? '' : '\n') + insertText)
     }
+    const ctx = selectedContext ? ('status' in selectedContext ? `process:${(selectedContext as Process).type}` : `contract:${(selectedContext as Contract).type}`) : undefined
+    const clientId = selectedContext?.clientId
+    addAiHistory({ type: 'suggestion', text: insertText, context: ctx, clientId })
   }
 
   const handleGenerateDraft = async () => {
@@ -375,6 +379,9 @@ export function LegalEditor() {
       } else {
         setContent(prev => prev + insertText)
       }
+      const clientId = selectedContext?.clientId
+      const ctx = contextStr
+      addAiHistory({ type: 'draft', text: draft, context: ctx, clientId })
     } catch (e) {
       console.error('Falha ao gerar minuta', e)
       alert('Não foi possível gerar a minuta agora. Tente novamente.')
@@ -411,11 +418,31 @@ export function LegalEditor() {
   }
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const pdfInputRef = useRef<HTMLInputElement | null>(null)
 
   const handleOpenDocument = () => {
     // Abrir seletor de arquivo para carregar documento local (.html ou .txt)
     if (!fileInputRef.current) return
     fileInputRef.current.click()
+  }
+
+  const handleOpenPdf = () => {
+    if (!pdfInputRef.current) return
+    pdfInputRef.current.click()
+  }
+
+  const handlePdfSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await readPdfFile(file)
+      setContent(prev => prev + (prev.endsWith('\n') ? '' : '\n\n') + text)
+      alert('Texto do PDF inserido no editor.')
+    } catch (err: any) {
+      alert(err?.message || 'Falha ao ler o PDF.')
+    } finally {
+      e.currentTarget.value = ''
+    }
   }
 
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -650,6 +677,13 @@ export function LegalEditor() {
         onChange={handleFileSelected}
         style={{ display: 'none' }}
       />
+      <input
+        type="file"
+        accept="application/pdf,.pdf"
+        ref={pdfInputRef}
+        onChange={handlePdfSelected}
+        style={{ display: 'none' }}
+      />
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Editor Area - Takes more space */}
@@ -875,6 +909,15 @@ export function LegalEditor() {
                     <BarChart className="w-4 h-4 mr-3" />
                     Estatísticas
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full justify-start h-10 text-left"
+                    onClick={handleOpenPdf}
+                  >
+                    <FileText className="w-4 h-4 mr-3" />
+                    Ler PDF
+                  </Button>
                 </div>
               </div>
             </div>
@@ -952,3 +995,4 @@ export function LegalEditor() {
     </div>
   )
 }
+import { readPdfFile } from '@/services/pdfService'
