@@ -19,6 +19,8 @@ export function ProcessForm({ process, isEdit = false }: ProcessFormProps) {
   const createMutation = useCreateProcess()
   const updateMutation = useUpdateProcess()
   const { data: clients = [] } = useClients()
+  const { user } = useAuth()
+  const { data: allProcesses = [] } = useProcesses()
 
   const [formData, setFormData] = useState({
     type: (process?.type || 'civil') as ProcessType,
@@ -78,6 +80,17 @@ export function ProcessForm({ process, isEdit = false }: ProcessFormProps) {
     e.preventDefault()
 
     if (!validateForm()) return
+
+    const limits = getPlanLimits(user?.plan || 'common')
+    const activeCasesLimit = limits.activeCases ?? Infinity
+    if (Number.isFinite(activeCasesLimit)) {
+      const activeCount = (allProcesses || []).filter(p => p.status === 'in_progress' || p.status === 'pending').length
+      const isCreatingNew = !isEdit
+      if (isCreatingNew && activeCount >= activeCasesLimit) {
+        alert('Limite de casos ativos atingido para seu plano. Atualize seu plano para adicionar mais casos.')
+        return
+      }
+    }
 
     // Simular upload de arquivos (em um sistema real, você faria upload aqui)
     const newAttachmentNames = attachments.map(file => file.name)
@@ -331,3 +344,6 @@ export function ProcessForm({ process, isEdit = false }: ProcessFormProps) {
     </div>
   )
 }
+import { useAuth } from '@/hooks/useAuth'
+import { useProcesses } from '@/hooks/useProcesses'
+import { getPlanLimits } from '@/services/plans'

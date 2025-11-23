@@ -1,4 +1,4 @@
-export type UserPlan = 'common' | 'pro'
+export type UserPlan = 'common' | 'start' | 'pro' | 'office'
 
 export interface User {
   id: string

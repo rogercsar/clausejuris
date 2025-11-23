@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 // import { useNavigate } from 'react-router-dom' // Removido pois não está sendo usado
 import { useAuth } from '@/hooks/useAuth'
+import { getPlanLimits } from '@/services/plans'
+import { getAiDocsUsed, incAiDocs } from '@/services/usageService'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { 
@@ -66,7 +68,11 @@ export function LegalEditor() {
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false)
   const [suggestionFilter, setSuggestionFilter] = useState<'all' | 'correction'>('all')
 
-  const isPro = user?.plan === 'pro'
+  const limits = getPlanLimits(user?.plan || 'common')
+  const aiEnabled = Boolean(limits.features.ai)
+  const aiDocsUsed = user ? getAiDocsUsed(user) : 0
+  const aiDocsLimit = limits.aiDocsPerMonth ?? Infinity
+  const aiRemaining = Math.max(0, aiDocsLimit === Infinity ? Infinity : (aiDocsLimit - aiDocsUsed))
   
   const selectedFolderPathLabel = useMemo(() => {
     if (!selectedContext || !selectedFolderId) return 'Pasta Principal'
@@ -125,7 +131,8 @@ export function LegalEditor() {
 
   // Buscar sugestões com debounce usando IA local
   useEffect(() => {
-    if (!isPro) return
+    if (!aiEnabled) return
+    if (aiRemaining === 0) return
     const text = content.trim()
     if (text.length < 10) {
       setSuggestions([])
@@ -163,7 +170,7 @@ export function LegalEditor() {
     return () => {
       clearTimeout(timeout)
     }
-  }, [content, isPro, selectedContext, selectedTopics])
+  }, [content, aiEnabled, selectedContext, selectedTopics])
 
   const generateContextualSuggestions = (_text: string, context: Process | Contract | null): EditorSuggestion[] => {
     const baseSuggestions: EditorSuggestion[] = [
@@ -344,6 +351,10 @@ export function LegalEditor() {
 
   const handleGenerateDraft = async () => {
     if (isGeneratingDraft) return
+    if (!aiEnabled || aiRemaining === 0) {
+      alert('Limite de documentos com IA atingido neste mês para seu plano.')
+      return
+    }
     setIsGeneratingDraft(true)
     try {
       let contextStr: string | undefined = undefined
@@ -379,6 +390,7 @@ export function LegalEditor() {
       } else {
         setContent(prev => prev + insertText)
       }
+      if (user) incAiDocs(user)
       const clientId = selectedContext?.clientId
       const ctx = contextStr
       addAiHistory({ type: 'draft', text: draft, context: ctx, clientId })
@@ -753,10 +765,10 @@ export function LegalEditor() {
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   <span>{wordCount} palavras</span>
                   <span>{characterCount} caracteres</span>
-                  {isPro && (
+                  {aiEnabled && (
                     <div className="flex items-center gap-1 text-blue-600">
                       <Zap className="w-4 h-4" />
-                      <span>IA Ativa</span>
+                      <span>IA Ativa{Number.isFinite(aiDocsLimit) ? ` • restante ${aiRemaining}` : ''}</span>
                     </div>
                   )}
                 </div>
@@ -786,7 +798,7 @@ export function LegalEditor() {
                 onUndo={handleUndo}
                 onRedo={handleRedo}
                 onFormat={handleFormat}
-                isPro={isPro}
+                isPro={limits.features.smartTemplates}
                 contextName={selectedContext?.clientName}
                 wordCount={wordCount}
                 characterCount={characterCount}
@@ -815,7 +827,7 @@ export function LegalEditor() {
               <ContextInfo context={selectedContext} client={client || null} />
 
               {/* Pro Features - Only AI Suggestions */}
-              {isPro && (
+              {aiEnabled && (
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
                   <div className="flex items-center gap-2 mb-3">
                     <Zap className="w-5 h-5 text-blue-600" />
@@ -826,7 +838,7 @@ export function LegalEditor() {
                   </p>
                   {/* Ações rápidas */}
                   <div className="flex gap-2 mb-3">
-                    <Button size="sm" variant="primary" onClick={handleGenerateDraft} disabled={isGeneratingDraft}>
+                    <Button size="sm" variant="primary" onClick={handleGenerateDraft} disabled={isGeneratingDraft || aiRemaining === 0}>
                       {isGeneratingDraft ? 'Gerando...' : 'Gerar minuta'}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setSuggestionFilter('correction')}>
