@@ -1,10 +1,38 @@
 import type { EditorSuggestion } from '@/types'
 import { resolveLawProvider } from './lawProvider'
 
+const GEMINI_URL = import.meta.env.VITE_GEMINI_URL as string | undefined
+
+async function callGemini(payload: { text: string; context?: string; topics?: string[] }): Promise<{ suggestions: EditorSuggestion[]; draft: string } | null> {
+  if (!GEMINI_URL) return null
+  try {
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: payload.text,
+        context: payload.context || '',
+        topics: Array.isArray(payload.topics) ? payload.topics : [],
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json().catch(() => ({})) as any
+    const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : []
+    const draft = typeof data?.draft === 'string' ? data.draft : ''
+    return { suggestions, draft }
+  } catch {
+    return null
+  }
+}
+
 type SuggestParams = { text: string; context?: string; topics?: string[] }
 
 export const aiEngine = {
   async getEditorSuggestions({ text, context, topics = [] }: SuggestParams): Promise<EditorSuggestion[]> {
+    const remote = await callGemini({ text, context, topics })
+    if (remote && Array.isArray(remote.suggestions) && remote.suggestions.length > 0) {
+      return remote.suggestions as EditorSuggestion[]
+    }
     const base: EditorSuggestion[] = [
       {
         id: '1',
@@ -193,6 +221,10 @@ export const aiEngine = {
   },
 
   async generateDraft({ text, context, topics = [] }: SuggestParams): Promise<{ draft: string }> {
+    const remote = await callGemini({ text, context, topics })
+    if (remote && typeof remote.draft === 'string' && remote.draft.trim().length > 0) {
+      return { draft: remote.draft }
+    }
     const title = context?.startsWith('contract')
       ? 'Minuta de Contrato'
       : context?.startsWith('process')

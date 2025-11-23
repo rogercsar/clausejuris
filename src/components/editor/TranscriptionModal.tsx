@@ -16,6 +16,7 @@ export function TranscriptionModal({ isOpen, onClose, onTranscribed }: Transcrip
   const [isRecording, setIsRecording] = useState(false)
   const [liveTranscript, setLiveTranscript] = useState('')
   const recognitionRef = useRef<any>(null)
+  const HAS_TRANSCRIBE = Boolean(import.meta.env.VITE_TRANSCRIBE_URL)
 
   const handleUpload = async () => {
     if (!file) return
@@ -90,7 +91,9 @@ export function TranscriptionModal({ isOpen, onClose, onTranscribed }: Transcrip
         <DialogHeader>
           <DialogTitle className="text-xl">Transcrever áudio/vídeo</DialogTitle>
           <DialogDescription>
-            Envie um arquivo de áudio ou vídeo de audiência para gerar a transcrição (simulado)
+            {HAS_TRANSCRIBE
+              ? 'Envie um arquivo de áudio ou vídeo de audiência para gerar a transcrição'
+              : 'Envie um arquivo de áudio ou vídeo de audiência para gerar a transcrição (simulado)'}
           </DialogDescription>
         </DialogHeader>
 
