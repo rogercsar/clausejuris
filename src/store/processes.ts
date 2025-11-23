@@ -6,7 +6,7 @@ export interface ProcessTimelineEvent {
   date: string
   title: string
   description?: string
-  type: 'status'
+  type: 'status' | 'manual'
 }
 
 interface ProcessesState {

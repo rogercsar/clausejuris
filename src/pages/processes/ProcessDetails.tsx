@@ -21,6 +21,8 @@ export function ProcessDetails() {
   const { data: processes = [] } = useProcesses()
   const store = useProcessesStore()
   const timelineEventsByProcess: Record<string, ProcessTimelineEvent[]> = store.timelineEvents
+  const [typeFilters, setTypeFilters] = useState<{ start: boolean; task: boolean; deadline: boolean; calendar: boolean; status: boolean; end: boolean }>({ start: true, task: true, deadline: true, calendar: true, status: true, end: true })
+  const toggleFilter = (key: keyof typeof typeFilters) => setTypeFilters((f) => ({ ...f, [key]: !f[key] }))
   const [showTasksModal, setShowTasksModal] = useState(false)
   const [showCollaborationModal, setShowCollaborationModal] = useState(false)
   const [showTeamManagerModal, setShowTeamManagerModal] = useState(false)
@@ -245,6 +247,14 @@ export function ProcessDetails() {
               <CardDescription>Eventos, prazos e atividades do processo</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button variant={typeFilters.start ? 'secondary' : 'outline'} size="sm" onClick={() => toggleFilter('start')}>Início</Button>
+                <Button variant={typeFilters.task ? 'secondary' : 'outline'} size="sm" onClick={() => toggleFilter('task')}>Tarefas</Button>
+                <Button variant={typeFilters.deadline ? 'secondary' : 'outline'} size="sm" onClick={() => toggleFilter('deadline')}>Prazos</Button>
+                <Button variant={typeFilters.calendar ? 'secondary' : 'outline'} size="sm" onClick={() => toggleFilter('calendar')}>Agenda</Button>
+                <Button variant={typeFilters.status ? 'secondary' : 'outline'} size="sm" onClick={() => toggleFilter('status')}>Status</Button>
+                <Button variant={typeFilters.end ? 'secondary' : 'outline'} size="sm" onClick={() => toggleFilter('end')}>Fim</Button>
+              </div>
               {(() => {
                 const tasks = getTasksByProcess(process.id)
                 const deadlines = getDeadlinesByProcess(process.id)
@@ -272,6 +282,13 @@ export function ProcessDetails() {
                     description: d.description,
                     type: 'deadline' as const,
                   })),
+                  ...deadlines.filter(d => d.type === 'hearing').map(d => ({
+                    id: `${d.id}-agenda`,
+                    date: d.dueDate,
+                    title: `Audiência: ${d.title}`,
+                    description: d.description,
+                    type: 'calendar' as const,
+                  })),
                   ...calendarEvents.map(e => ({
                     id: e.id,
                     date: e.startDate,
@@ -293,7 +310,7 @@ export function ProcessDetails() {
                     description: getProcessStatusLabel(process.status),
                     type: 'end' as const,
                   }] : []),
-                ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                ].filter((ev) => typeFilters[ev.type]).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
                 const typeBadge = (type: 'start' | 'task' | 'deadline' | 'calendar' | 'status' | 'end') => {
                   switch (type) {
@@ -325,7 +342,7 @@ export function ProcessDetails() {
                     case 'calendar':
                       return <Calendar className="w-4 h-4 text-teal-600" />
                     case 'status':
-                      return <Badge className="text-xs">S</Badge>
+                      return <Scale className="w-4 h-4 text-indigo-600" />
                     case 'end':
                       return <Calendar className="w-4 h-4 text-purple-600" />
                     default:
