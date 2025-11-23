@@ -20,13 +20,16 @@ export function TranscriptionModal({ isOpen, onClose, onTranscribed }: Transcrip
   const handleUpload = async () => {
     if (!file) return
     setIsLoading(true)
-    // Mock transcription latency
-    await new Promise(r => setTimeout(r, 1200))
-    // Mock transcription content
-    const transcript = `Transcrição simulada de "${file.name}" em ${new Date().toLocaleString('pt-BR')}\n\n[Conteúdo da audiência transcrito aqui...]`
-    onTranscribed(transcript)
-    setIsLoading(false)
-    onClose()
+    try {
+      const text = await transcribeFile(file)
+      onTranscribed(text)
+    } catch (e: any) {
+      const transcript = `Transcrição simulada de "${file.name}" em ${new Date().toLocaleString('pt-BR')}\n\n[${e?.message || 'Falha na transcrição'}]`
+      onTranscribed(transcript)
+    } finally {
+      setIsLoading(false)
+      onClose()
+    }
   }
 
   const initRecognition = () => {
@@ -135,6 +138,10 @@ export function TranscriptionModal({ isOpen, onClose, onTranscribed }: Transcrip
     </Dialog>
   )
 }
+
+
+
+import { transcribeFile } from '@/services/transcriptionService'
 
 
 
