@@ -257,6 +257,60 @@ CPF: [NÚMERO]                         CPF: [NÚMERO]`,
     keywords: ['contrato', 'locação', 'residencial', 'aluguel', 'imóvel'],
     isPro: false
   }
+  ,{
+    id: '5',
+    name: 'Ação de Alimentos',
+    category: 'Família',
+    description: 'Modelo com pedidos de alimentos provisórios e definitivos',
+    content: `AÇÃO DE ALIMENTOS\n\nDos Fatos: ...\nDo Direito: ...\nPedidos: alimentos provisórios, definitivos, custas...`,
+    keywords: ['família', 'alimentos', 'provisório', 'definitivo'],
+    isPro: true
+  }
+  ,{
+    id: '6',
+    name: 'Divórcio Consensual',
+    category: 'Família',
+    description: 'Modelo com partilha, guarda e pensão',
+    content: `DIVÓRCIO CONSENSUAL\n\nPartilha: ...\nGuarda: ...\nPensão: ...\nForo: ...`,
+    keywords: ['família', 'divórcio', 'consensual', 'guarda'],
+    isPro: false
+  }
+  ,{
+    id: '7',
+    name: 'Contestação (Civil)',
+    category: 'Civil',
+    description: 'Estrutura de defesa com preliminares e mérito',
+    content: `CONTESTAÇÃO\n\nPreliminares: ...\nMérito: ...\nProvas: ...\nPedidos: ...`,
+    keywords: ['contestação', 'defesa', 'civil'],
+    isPro: false
+  }
+  ,{
+    id: '8',
+    name: 'Mandado de Segurança',
+    category: 'Civil',
+    description: 'Fundamento constitucional e prova pré-constituída',
+    content: `MANDADO DE SEGURANÇA\n\nAutoridade coatora: ...\nDireito líquido e certo: ...\nPedidos: liminar, notificação, informações...`,
+    keywords: ['mandado', 'segurança', 'liminar'],
+    isPro: true
+  }
+  ,{
+    id: '9',
+    name: 'NDA - Acordo de Confidencialidade',
+    category: 'Contratos',
+    description: 'Sigilo, penalidades e prazo',
+    content: `NDA\n\nDefinições: ...\nObrigações: ...\nPenalidades: ...\nPrazo: ...\nForo: ...`,
+    keywords: ['nda', 'sigilo', 'confidencialidade'],
+    isPro: false
+  }
+  ,{
+    id: '10',
+    name: 'Procuração',
+    category: 'Civil',
+    description: 'Poderes específicos e prazo de validade',
+    content: `PROCURAÇÃO\n\nOutorgante: ...\nOutorgado: ...\nPoderes: ...\nPrazo: ...`,
+    keywords: ['procuração', 'poderes', 'outorga'],
+    isPro: false
+  }
 ]
 
 export function TemplatesModal({ isOpen, onClose, onTemplateSelect }: TemplatesModalProps) {

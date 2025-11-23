@@ -96,6 +96,56 @@ export const aiEngine = {
         confidence: 0.87,
       })
     }
+    if (topics.includes('foro')) {
+      contextual.push({
+        id: 'tp-6',
+        type: 'snippet',
+        text: 'foro',
+        replacement: 'Fica eleito o foro da comarca de São Paulo/SP para dirimir controvérsias.',
+        description: 'Cláusula de foro',
+        confidence: 0.89,
+      })
+    }
+    if (topics.includes('assinatura')) {
+      contextual.push({
+        id: 'tp-7',
+        type: 'snippet',
+        text: 'assinaturas',
+        replacement: 'Assinam as partes o presente instrumento em 2 vias de igual teor.',
+        description: 'Cláusula de assinaturas',
+        confidence: 0.86,
+      })
+    }
+    if (topics.includes('objeto')) {
+      contextual.push({
+        id: 'tp-8',
+        type: 'snippet',
+        text: 'objeto',
+        replacement: 'Objeto: prestação de serviços conforme especificações anexas.',
+        description: 'Cláusula de objeto',
+        confidence: 0.9,
+      })
+    }
+    if (topics.includes('cláusulas')) {
+      contextual.push({
+        id: 'tp-9',
+        type: 'snippet',
+        text: 'cláusulas essenciais',
+        replacement: 'As cláusulas a seguir regulam objeto, prazo, pagamento, rescisão e foro.',
+        description: 'Estrutura de cláusulas essenciais',
+        confidence: 0.85,
+      })
+    }
+    if (topics.includes('revisão')) {
+      contextual.push({
+        id: 'tp-10',
+        type: 'correction',
+        text: 'revisão textual',
+        replacement: 'Padronizar termos e remover redundâncias para maior clareza.',
+        description: 'Sugestão de revisão textual',
+        confidence: 0.8,
+      })
+    }
 
     // Pequeno ajuste por palavra-chave no texto para demonstrar uso do parâmetro
     const textLc = (text || '').toLowerCase()
@@ -125,6 +175,18 @@ export const aiEngine = {
       }))
     } catch {
       lawSnippets = []
+    }
+    if (context?.startsWith('process:labor')) {
+      contextual.push({ id: 'ctx-lab-1', type: 'snippet', text: 'CLT art. 7º', replacement: 'Direitos dos trabalhadores conforme CLT art. 7º.', description: 'Processo trabalhista', confidence: 0.86 })
+    }
+    if (context?.startsWith('process:civil')) {
+      contextual.push({ id: 'ctx-civ-1', type: 'snippet', text: 'CPC art. 319', replacement: 'Estrutura da petição inicial conforme CPC art. 319.', description: 'Processo civil', confidence: 0.86 })
+    }
+    if (context?.startsWith('contract:service')) {
+      contextual.push({ id: 'ctx-srv-1', type: 'snippet', text: 'escopo e SLA', replacement: 'Definição de escopo e SLA para prestação de serviços.', description: 'Contrato de serviços', confidence: 0.87 })
+    }
+    if (context?.startsWith('contract:rental')) {
+      contextual.push({ id: 'ctx-rent-1', type: 'snippet', text: 'garantias locatícias', replacement: 'Garantias: caução de 3 alugueis ou fiador idôneo.', description: 'Contrato de locação', confidence: 0.87 })
     }
     const suggestions = [...base, ...contextual, ...lawSnippets]
     return suggestions

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -13,6 +13,9 @@ interface TranscriptionModalProps {
 export function TranscriptionModal({ isOpen, onClose, onTranscribed }: TranscriptionModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [liveTranscript, setLiveTranscript] = useState('')
+  const recognitionRef = useRef<any>(null)
 
   const handleUpload = async () => {
     if (!file) return
@@ -24,6 +27,58 @@ export function TranscriptionModal({ isOpen, onClose, onTranscribed }: Transcrip
     onTranscribed(transcript)
     setIsLoading(false)
     onClose()
+  }
+
+  const initRecognition = () => {
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) return null
+    const rec = new SR()
+    rec.lang = 'pt-BR'
+    rec.interimResults = true
+    rec.continuous = true
+    rec.onresult = (event: any) => {
+      let text = ''
+      for (let i = 0; i < event.results.length; i++) {
+        text += event.results[i][0].transcript
+        text += ' '
+      }
+      setLiveTranscript(text.trim())
+    }
+    rec.onerror = () => {
+      setIsRecording(false)
+    }
+    recognitionRef.current = rec
+    return rec
+  }
+
+  const startRecording = () => {
+    if (isRecording) return
+    const rec = recognitionRef.current || initRecognition()
+    if (!rec) {
+      alert('Seu navegador não suporta reconhecimento de voz. Tente o Chrome no desktop.')
+      return
+    }
+    setLiveTranscript('')
+    try {
+      rec.start()
+      setIsRecording(true)
+    } catch {
+      setIsRecording(false)
+    }
+  }
+
+  const stopRecording = () => {
+    if (!recognitionRef.current) return
+    try {
+      recognitionRef.current.stop()
+    } finally {
+      setIsRecording(false)
+      if (liveTranscript.trim().length > 0) {
+        onTranscribed(liveTranscript.trim())
+      }
+      setLiveTranscript('')
+      onClose()
+    }
   }
 
   return (
@@ -42,6 +97,20 @@ export function TranscriptionModal({ isOpen, onClose, onTranscribed }: Transcrip
               <Mic className="w-4 h-4" /> <span>/</span> <Video className="w-4 h-4" />
               <span>Formatos comuns: mp3, wav, mp4, m4a</span>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-secondary-700">Gravação por microfone</label>
+            <div className="flex items-center gap-3">
+              <Button variant={isRecording ? 'secondary' : 'outline'} onClick={isRecording ? stopRecording : startRecording}>
+                <Mic className="w-4 h-4 mr-2" />
+                {isRecording ? 'Parar' : 'Gravar e transcrever'}
+              </Button>
+              {isRecording && <span className="text-xs text-secondary-600">Gravando...</span>}
+            </div>
+            {liveTranscript && (
+              <div className="mt-2 p-3 border border-secondary-200 rounded-md bg-white text-sm whitespace-pre-wrap">{liveTranscript}</div>
+            )}
           </div>
 
           <div className="space-y-2">
