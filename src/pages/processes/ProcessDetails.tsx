@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, Scale, Calendar, FileText, User, CheckSquare, MessageSquare, Users, FolderOpen } from 'lucide-react'
+import { ArrowLeft, Edit, Scale, Calendar, FileText, User, CheckSquare, MessageSquare, Users, FolderOpen, Clock } from 'lucide-react'
 import { PrintButton } from '@/components/ui/PrintButton'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -11,12 +11,16 @@ import { CollaborationPanel } from '@/components/collaboration/CollaborationPane
 import { TeamManagerModal } from '@/components/collaboration/TeamManager'
 import { RelationshipsPanel } from '@/components/relationships/RelationshipsPanel'
 import { useProcesses } from '@/hooks/useProcesses'
+import { useProcessesStore, type ProcessTimelineEvent } from '@/store/processes'
 import { formatDate, getProcessTypeLabel, getProcessStatusLabel, getStatusColor } from '@/lib/utils'
+import { getTasksByProcess, getDeadlinesByProcess, getCalendarEventsByProcess } from '@/data/tasks'
 
 export function ProcessDetails() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: processes = [] } = useProcesses()
+  const store = useProcessesStore()
+  const timelineEventsByProcess: Record<string, ProcessTimelineEvent[]> = store.timelineEvents
   const [showTasksModal, setShowTasksModal] = useState(false)
   const [showCollaborationModal, setShowCollaborationModal] = useState(false)
   const [showTeamManagerModal, setShowTeamManagerModal] = useState(false)
@@ -234,6 +238,131 @@ export function ProcessDetails() {
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Timeline do Caso</CardTitle>
+              <CardDescription>Eventos, prazos e atividades do processo</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const tasks = getTasksByProcess(process.id)
+                const deadlines = getDeadlinesByProcess(process.id)
+                const calendarEvents = getCalendarEventsByProcess(process.id)
+                const statusEvents = timelineEventsByProcess[process.id] || []
+                const items = [
+                  {
+                    id: `start-${process.id}`,
+                    date: process.startDate,
+                    title: 'Início do processo',
+                    description: getProcessTypeLabel(process.type),
+                    type: 'start' as const,
+                  },
+                  ...tasks.map(t => ({
+                    id: t.id,
+                    date: t.dueDate,
+                    title: t.title,
+                    description: t.description,
+                    type: 'task' as const,
+                  })),
+                  ...deadlines.map(d => ({
+                    id: d.id,
+                    date: d.dueDate,
+                    title: d.title,
+                    description: d.description,
+                    type: 'deadline' as const,
+                  })),
+                  ...calendarEvents.map(e => ({
+                    id: e.id,
+                    date: e.startDate,
+                    title: e.title,
+                    description: e.description,
+                    type: 'calendar' as const,
+                  })),
+                  ...statusEvents.map((e: ProcessTimelineEvent) => ({
+                    id: e.id,
+                    date: e.date,
+                    title: e.title,
+                    description: getProcessStatusLabel(e.description || ''),
+                    type: 'status' as const,
+                  })),
+                  ...(process.endDate ? [{
+                    id: `end-${process.id}`,
+                    date: process.endDate,
+                    title: 'Encerramento do processo',
+                    description: getProcessStatusLabel(process.status),
+                    type: 'end' as const,
+                  }] : []),
+                ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+                const typeBadge = (type: 'start' | 'task' | 'deadline' | 'calendar' | 'status' | 'end') => {
+                  switch (type) {
+                    case 'start':
+                      return <Badge variant="outline" className="text-xs">início</Badge>
+                    case 'task':
+                      return <Badge variant="outline" className="text-xs">tarefa</Badge>
+                    case 'deadline':
+                      return <Badge variant="outline" className="text-xs">prazo</Badge>
+                    case 'calendar':
+                      return <Badge variant="outline" className="text-xs">agenda</Badge>
+                    case 'status':
+                      return <Badge variant="outline" className="text-xs">status</Badge>
+                    case 'end':
+                      return <Badge variant="outline" className="text-xs">fim</Badge>
+                    default:
+                      return null
+                  }
+                }
+
+                const typeIcon = (type: 'start' | 'task' | 'deadline' | 'calendar' | 'status' | 'end') => {
+                  switch (type) {
+                    case 'start':
+                      return <Calendar className="w-4 h-4 text-blue-600" />
+                    case 'task':
+                      return <CheckSquare className="w-4 h-4 text-green-600" />
+                    case 'deadline':
+                      return <Clock className="w-4 h-4 text-orange-600" />
+                    case 'calendar':
+                      return <Calendar className="w-4 h-4 text-teal-600" />
+                    case 'status':
+                      return <Badge className="text-xs">S</Badge>
+                    case 'end':
+                      return <Calendar className="w-4 h-4 text-purple-600" />
+                    default:
+                      return <Clock className="w-4 h-4 text-gray-600" />
+                  }
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {items.map(ev => (
+                      <div key={ev.id} className="flex items-start gap-4">
+                        <div className="flex-shrink-0 mt-1">
+                          {typeIcon(ev.type)}
+                        </div>
+                        <div className="flex-1">
+                          <Card>
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 className="font-medium">{ev.title}</h4>
+                                <span className="text-xs text-secondary-500">{formatDate(ev.date)}</span>
+                              </div>
+                              {ev.description && (
+                                <p className="text-sm text-secondary-600 mb-2">{ev.description}</p>
+                              )}
+                              <div className="flex items-center gap-2 text-xs text-secondary-500">
+                                {typeBadge(ev.type)}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}

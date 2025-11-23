@@ -287,6 +287,10 @@ export function getCalendarEventsByRange(startDate: string, endDate: string): Ca
   })
 }
 
+export function getCalendarEventsByProcess(processId: string): CalendarEvent[] {
+  return mockCalendarEvents.filter(event => event.processId === processId)
+}
+
 export function createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
   const newTask: Task = {
     ...task,
