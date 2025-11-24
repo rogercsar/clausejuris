@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { Activity, BarChart3, RefreshCw, Shield, Star, Users, Wallet } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Activity, BarChart3, LineChart, RefreshCw, Shield, Star, Users, Wallet } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useAdminPlatformData, useAdminUserStats, useAdminUsers } from '@/hooks/useAdmin'
 import { formatCurrency } from '@/lib/utils'
 
 export function AdminDashboard() {
+  const navigate = useNavigate()
   const { data: users = [], isLoading, refetch } = useAdminUsers()
   const stats = useAdminUserStats(users)
   const { data: platformData } = useAdminPlatformData()
@@ -25,7 +26,19 @@ export function AdminDashboard() {
       revenueByMonthMap[key] = (revenueByMonthMap[key] || 0) + (contract.value || 0)
     })
 
-    return { totalValue, activeContracts, avgTicket }
+    const revenueByMonth = Object.entries(revenueByMonthMap)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-6)
+      .map(([key, value]) => {
+        const [year, month] = key.split('-').map(Number)
+        const label = new Date(year, month - 1).toLocaleDateString('pt-BR', {
+          month: 'short',
+          year: 'numeric',
+        })
+        return { label, value }
+      })
+
+    return { totalValue, activeContracts, avgTicket, revenueByMonth }
   }, [platformData?.contracts])
 
   const processStats = useMemo(() => {
@@ -200,9 +213,12 @@ export function AdminDashboard() {
             <div key={card.title} className="rounded-lg border border-secondary-200 p-4">
               <h3 className="text-base font-semibold text-secondary-900">{card.title}</h3>
               <p className="text-sm text-secondary-600 mt-1">{card.description}</p>
-              <Button variant="outline" size="sm" className="mt-3" asChild>
-                <Link to={card.link}>Acessar</Link>
-              </Button>
+              <Link
+                to={card.link}
+                className="mt-3 inline-flex h-10 items-center justify-center rounded-md border border-secondary-300 px-4 text-sm font-medium text-secondary-700 hover:bg-secondary-50"
+              >
+                Acessar
+              </Link>
             </div>
           ))}
         </CardContent>
