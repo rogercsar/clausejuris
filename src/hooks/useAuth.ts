@@ -54,31 +54,8 @@ export function useLogin() {
         }
       }
 
-      try {
-        // Try API first
-        return await apiClient.login(data)
-      } catch (error) {
-        // Fallback for demo purposes
-        if (data.email === 'admin@clause.com' && data.password === '123456') {
-          const mockUser: User = {
-            id: '1',
-            email: 'admin@clause.com',
-            name: 'Admin',
-            fullName: 'Administrador do Sistema',
-            oab: '123456',
-            phone: '(11) 99999-9999',
-            plan: 'pro',
-            avatar: '',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z',
-          }
-          return {
-            user: mockUser,
-            token: 'demo-token-' + Date.now()
-          }
-        }
-        throw error
-      }
+      // Use API client when Supabase is not configured
+      return await apiClient.login(data)
     },
     onSuccess: (response) => {
       login(response.user, response.token)
@@ -161,14 +138,7 @@ export function useMe() {
         if (profileError) throw profileError
         return mapProfileToUser(profile)
       }
-      try {
-        return await apiClient.getMe()
-      } catch (error) {
-        if (user) {
-          return user
-        }
-        throw error
-      }
+      return await apiClient.getMe()
     },
     enabled: isAuthenticated,
   })

@@ -53,7 +53,7 @@ export function ProcessesList() {
   }, [processes, checkProcessesForNotifications])
 
   useEffect(() => {
-    startTribunalPolling()
+    void startTribunalPolling()
     const unsub = subscribeTribunalUpdates(setUpdates)
     return () => unsub()
   }, [])
@@ -102,7 +102,7 @@ export function ProcessesList() {
   }
 
   const trackNumero = (numero: string) => {
-    trackTribunalProcessNumbers([numero])
+    void trackTribunalProcessNumbers([numero])
   }
 
   const statusOptions: { value: ProcessStatus; label: string }[] = [

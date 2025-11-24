@@ -9,7 +9,8 @@ Frontend MVP da plataforma Clause, uma solução completa para gestão jurídica
 - **Zustand** para gerenciamento de estado
 - **React Query** para cache e sincronização de dados
 - **Monaco Editor** para editor jurídico avançado
-- **MSW** para mocks de API
+- **Supabase** para backend e autenticação (quando configurado)
+- **MSW** para mocks de API (desabilitado automaticamente quando Supabase está configurado)
 - **Vitest** + **React Testing Library** para testes
 - **Lucide React** para ícones
 
@@ -58,9 +59,30 @@ npm run lint
 
 ## 🔌 Integração com Backend
 
-### Endpoints Mockados
+### Supabase (Recomendado)
 
-O sistema está configurado com MSW para simular todas as APIs. Para integrar com o backend real, substitua as chamadas mockadas pelos endpoints reais:
+O sistema está configurado para usar **Supabase** quando as variáveis de ambiente estão configuradas. Quando Supabase está disponível, o MSW é automaticamente desabilitado e todos os dados são reais.
+
+#### Configuração do Supabase
+
+1. **Configure as variáveis de ambiente**:
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-anon
+VITE_USE_MSW=false  # MSW é desabilitado automaticamente quando Supabase está configurado
+```
+
+2. **Execute o schema SQL**:
+   - Execute o arquivo `supabase/schema.sql` no SQL Editor do seu projeto Supabase
+   - Isso criará todas as tabelas necessárias com Row Level Security (RLS)
+
+3. **Estrutura de dados**:
+   - Todos os hooks (`useAuth`, `useContracts`, `useProcesses`, `useClients`, `useTasks`) usam Supabase automaticamente quando configurado
+   - Os dados são armazenados de forma segura com RLS baseado no `user_id`
+
+### Endpoints Mockados (Fallback)
+
+Quando Supabase não está configurado, o sistema usa MSW para simular as APIs. Para integrar com outro backend, substitua as chamadas mockadas pelos endpoints reais:
 
 #### Autenticação
 ```typescript
@@ -121,9 +143,10 @@ VITE_USE_MSW=false
    - Implemente refresh token se necessário
 
 4. **Habilitar/Desabilitar Mocks (MSW)**:
-   - `VITE_USE_MSW=true` para usar API mockada (recomendado para desenvolvimento rápido)
-   - `VITE_USE_MSW=false` para usar backend real
-   - O app carrega o MSW dinamicamente baseado nesta flag
+   - **Com Supabase configurado**: MSW é automaticamente desabilitado (dados reais)
+   - **Sem Supabase**: `VITE_USE_MSW=true` para usar API mockada (desenvolvimento)
+   - **Sem Supabase**: `VITE_USE_MSW=false` para usar backend real customizado
+   - O app detecta automaticamente a configuração e ajusta o comportamento
 
 ### Estrutura de Dados
 

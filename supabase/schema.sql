@@ -304,6 +304,53 @@ create index if not exists cross_references_user_idx on public.cross_references(
 create trigger cross_references_set_updated_at before update on public.cross_references
   for each row execute procedure set_updated_at();
 
+-- Tribunal Updates (Andamentos Processuais)
+create table if not exists public.tribunal_updates (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  process_number text not null,
+  title text not null,
+  description text not null,
+  status text,
+  tribunal text,
+  vara text,
+  update_date timestamp with time zone not null default now(),
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+alter table public.tribunal_updates enable row level security;
+create policy "Tribunal updates visible to owner" on public.tribunal_updates
+  for select using (user_id = auth.uid());
+create policy "Tribunal updates creatable by owner" on public.tribunal_updates
+  for insert with check (user_id = auth.uid());
+create policy "Tribunal updates updatable by owner" on public.tribunal_updates
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "Tribunal updates deletable by owner" on public.tribunal_updates
+  for delete using (user_id = auth.uid());
+create index if not exists tribunal_updates_user_idx on public.tribunal_updates(user_id);
+create index if not exists tribunal_updates_process_number_idx on public.tribunal_updates(process_number);
+create index if not exists tribunal_updates_date_idx on public.tribunal_updates(update_date);
+create trigger tribunal_updates_set_updated_at before update on public.tribunal_updates
+  for each row execute procedure set_updated_at();
+
+-- Tracked Process Numbers (números de processos rastreados)
+create table if not exists public.tracked_process_numbers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  process_number text not null,
+  created_at timestamp with time zone not null default now(),
+  unique(user_id, process_number)
+);
+alter table public.tracked_process_numbers enable row level security;
+create policy "Tracked numbers visible to owner" on public.tracked_process_numbers
+  for select using (user_id = auth.uid());
+create policy "Tracked numbers creatable by owner" on public.tracked_process_numbers
+  for insert with check (user_id = auth.uid());
+create policy "Tracked numbers deletable by owner" on public.tracked_process_numbers
+  for delete using (user_id = auth.uid());
+create index if not exists tracked_process_numbers_user_idx on public.tracked_process_numbers(user_id);
+create index if not exists tracked_process_numbers_process_idx on public.tracked_process_numbers(process_number);
+
 -- Notes:
 -- 1) Run this script in the Supabase SQL editor.
 -- 2) Ensure authentication email confirmations are configured per your project needs.

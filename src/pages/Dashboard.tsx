@@ -74,7 +74,7 @@ export function Dashboard() {
   ]
 
   useEffect(() => {
-    startTribunalPolling()
+    void startTribunalPolling()
     const unsub = subscribeTribunalUpdates(setTribunalUpdates)
     return () => unsub()
   }, [])
@@ -453,7 +453,7 @@ export function Dashboard() {
             <div>
               <CardTitle>Atualizações dos Tribunais</CardTitle>
               <CardDescription>
-                Andamentos recentes vinculados ao seu usuário (simulado)
+                Andamentos recentes vinculados ao seu usuário
               </CardDescription>
             </div>
           </CardHeader>
