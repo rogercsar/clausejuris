@@ -10,6 +10,7 @@ export function Header() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const isAdmin = user?.role === 'admin'
 
   const handleLogout = () => {
     logout()
@@ -51,6 +52,14 @@ export function Header() {
             >
               Fornecedores
             </Link>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="text-secondary-600 hover:text-secondary-900 transition-colors"
+              >
+                Admin
+              </Link>
+            )}
             <Link
               to="/editor"
               className="text-secondary-600 hover:text-secondary-900 transition-colors"
@@ -143,6 +152,15 @@ export function Header() {
               >
                 Fornecedores
               </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="text-secondary-600 hover:text-secondary-900 transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Admin
+                </Link>
+              )}
               <Link
                 to="/editor"
                 className="text-secondary-600 hover:text-secondary-900 transition-colors"

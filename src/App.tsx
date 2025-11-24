@@ -25,6 +25,7 @@ const SupplierDetails = React.lazy(() => import('@/pages/suppliers/SupplierDetai
 const LegalEditor = React.lazy(() => import('@/pages/editor/LegalEditor').then(m => ({ default: m.LegalEditor })))
 const LawsLibrary = React.lazy(() => import('@/pages/laws/LawsLibrary').then(m => ({ default: m.LawsLibrary })))
 const Profile = React.lazy(() => import('@/pages/profile/Profile').then(m => ({ default: m.Profile })))
+const AdminDashboard = React.lazy(() => import('@/pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -284,6 +285,18 @@ function App() {
                     <ErrorBoundary>
                       <Layout>
                         <SupplierForm isEdit />
+                      </Layout>
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute allowedRoles={[ 'admin' ]}>
+                    <ErrorBoundary>
+                      <Layout>
+                        <AdminDashboard />
                       </Layout>
                     </ErrorBoundary>
                   </ProtectedRoute>

@@ -70,6 +70,37 @@ create trigger profiles_set_updated_at before update on public.profiles
 create trigger profiles_prevent_role_change before update on public.profiles
   for each row execute procedure public.prevent_role_change();
 
+-- Allow admins to manage all profiles
+create policy "Profiles are viewable by admin" on public.profiles
+  for select
+  using (
+    exists (
+      select 1
+      from public.profiles as admin_profile
+      where admin_profile.id = auth.uid()
+        and admin_profile.role = 'admin'
+    )
+  );
+
+create policy "Profiles are updatable by admin" on public.profiles
+  for update
+  using (
+    exists (
+      select 1
+      from public.profiles as admin_profile
+      where admin_profile.id = auth.uid()
+        and admin_profile.role = 'admin'
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.profiles as admin_profile
+      where admin_profile.id = auth.uid()
+        and admin_profile.role = 'admin'
+    )
+  );
+
 -- Clients
 create table if not exists public.clients (
   id uuid primary key default gen_random_uuid(),
