@@ -10,11 +10,11 @@ export interface User {
   plan: UserPlan
   avatar?: string
   document?: string
+  isActive?: boolean
   createdAt: string
   updatedAt: string
   // Campos para colaboração
   role?: UserRole
-  isActive?: boolean
   lastLogin?: string
   password?: string
 }

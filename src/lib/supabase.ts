@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { UserPlan } from '@/types'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -28,10 +29,11 @@ export function mapProfileToUser(profile: any) {
     fullName: profile.full_name ?? '',
     oab: profile.oab ?? undefined,
     phone: profile.phone ?? undefined,
-    plan: (profile.plan ?? 'common') as 'common' | 'pro',
+    plan: (profile.plan ?? 'common') as UserPlan,
     role: profile.role ?? undefined,
     avatar: profile.avatar ?? undefined,
     document: profile.document ?? undefined,
+    isActive: profile.is_active ?? true,
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
   }
