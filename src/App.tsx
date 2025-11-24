@@ -25,7 +25,13 @@ const SupplierDetails = React.lazy(() => import('@/pages/suppliers/SupplierDetai
 const LegalEditor = React.lazy(() => import('@/pages/editor/LegalEditor').then(m => ({ default: m.LegalEditor })))
 const LawsLibrary = React.lazy(() => import('@/pages/laws/LawsLibrary').then(m => ({ default: m.LawsLibrary })))
 const Profile = React.lazy(() => import('@/pages/profile/Profile').then(m => ({ default: m.Profile })))
+const AdminLayout = React.lazy(() => import('@/pages/admin/AdminLayout').then(m => ({ default: m.AdminLayout })))
 const AdminDashboard = React.lazy(() => import('@/pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
+const AdminUsersPage = React.lazy(() => import('@/pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
+const AdminFinancePage = React.lazy(() => import('@/pages/admin/AdminFinancePage').then(m => ({ default: m.AdminFinancePage })))
+const AdminReportsPage = React.lazy(() => import('@/pages/admin/AdminReportsPage').then(m => ({ default: m.AdminReportsPage })))
+const AdminLawsPage = React.lazy(() => import('@/pages/admin/AdminLawsPage').then(m => ({ default: m.AdminLawsPage })))
+const AdminFeaturesPage = React.lazy(() => import('@/pages/admin/AdminFeaturesPage').then(m => ({ default: m.AdminFeaturesPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -295,13 +301,18 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={[ 'admin' ]}>
                     <ErrorBoundary>
-                      <Layout>
-                        <AdminDashboard />
-                      </Layout>
+                      <AdminLayout />
                     </ErrorBoundary>
                   </ProtectedRoute>
                 }
-              />
+              >
+                <Route index element={<AdminDashboard />} />
+                <Route path="users" element={<AdminUsersPage />} />
+                <Route path="finance" element={<AdminFinancePage />} />
+                <Route path="reports" element={<AdminReportsPage />} />
+                <Route path="laws" element={<AdminLawsPage />} />
+                <Route path="features" element={<AdminFeaturesPage />} />
+              </Route>
               <Route
                 path="/editor"
                 element={

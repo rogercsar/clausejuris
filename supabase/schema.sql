@@ -139,6 +139,38 @@ begin
 end;
 $$ language plpgsql;
 
+create table if not exists public.admin_permissions (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamp with time zone not null default now()
+);
+alter table public.admin_permissions disable row level security;
+
+create or replace function public.user_is_admin()
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1
+    from public.admin_permissions
+    where user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.sync_admin_permissions()
+returns trigger as $$
+begin
+  if new.role = 'admin' then
+    insert into public.admin_permissions (user_id)
+    values (new.id)
+    on conflict (user_id) do nothing;
+  else
+    delete from public.admin_permissions where user_id = new.id;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
 -- Profiles (extends auth.users)
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -172,27 +204,17 @@ create trigger profiles_set_updated_at before update on public.profiles
 drop trigger if exists profiles_prevent_role_change on public.profiles;
 create trigger profiles_prevent_role_change before update on public.profiles
   for each row execute procedure public.prevent_role_change();
+drop trigger if exists profiles_sync_admin_permissions on public.profiles;
+create trigger profiles_sync_admin_permissions
+  after insert or update of role on public.profiles
+  for each row execute procedure public.sync_admin_permissions();
 
 -- Allow admins to gerenciar todos os perfis
 drop policy if exists "Profiles manageable by admin" on public.profiles;
 create policy "Profiles manageable by admin" on public.profiles
   for all
-  using (
-    exists (
-      select 1
-      from public.profiles as admin_profile
-      where admin_profile.id = auth.uid()
-        and admin_profile.role = 'admin'
-    )
-  )
-  with check (
-    exists (
-      select 1
-      from public.profiles as admin_profile
-      where admin_profile.id = auth.uid()
-        and admin_profile.role = 'admin'
-    )
-  );
+  using (public.user_is_admin())
+  with check (public.user_is_admin());
 
 -- Clients
 create table if not exists public.clients (
@@ -227,14 +249,7 @@ create trigger clients_set_updated_at before update on public.clients
 
 drop policy if exists "Clients visible to admin" on public.clients;
 create policy "Clients visible to admin" on public.clients
-  for select using (
-    exists (
-      select 1
-      from public.profiles as admin_profile
-      where admin_profile.id = auth.uid()
-        and admin_profile.role = 'admin'
-    )
-  );
+  for select using (public.user_is_admin());
 
 -- Contracts
 create table if not exists public.contracts (
@@ -273,14 +288,7 @@ create trigger contracts_set_updated_at before update on public.contracts
 
 drop policy if exists "Contracts visible to admin" on public.contracts;
 create policy "Contracts visible to admin" on public.contracts
-  for select using (
-    exists (
-      select 1
-      from public.profiles as admin_profile
-      where admin_profile.id = auth.uid()
-        and admin_profile.role = 'admin'
-    )
-  );
+  for select using (public.user_is_admin());
 
 -- Processes
 create table if not exists public.processes (
@@ -323,14 +331,7 @@ create trigger processes_set_updated_at before update on public.processes
 
 drop policy if exists "Processes visible to admin" on public.processes;
 create policy "Processes visible to admin" on public.processes
-  for select using (
-    exists (
-      select 1
-      from public.profiles as admin_profile
-      where admin_profile.id = auth.uid()
-        and admin_profile.role = 'admin'
-    )
-  );
+  for select using (public.user_is_admin());
 
 -- Tasks
 create table if not exists public.tasks (
@@ -373,14 +374,7 @@ create trigger tasks_set_updated_at before update on public.tasks
 
 drop policy if exists "Tasks visible to admin" on public.tasks;
 create policy "Tasks visible to admin" on public.tasks
-  for select using (
-    exists (
-      select 1
-      from public.profiles as admin_profile
-      where admin_profile.id = auth.uid()
-        and admin_profile.role = 'admin'
-    )
-  );
+  for select using (public.user_is_admin());
 
 -- Notifications
 create table if not exists public.notifications (
@@ -527,12 +521,16 @@ create table if not exists public.tribunal_updates (
   updated_at timestamp with time zone not null default now()
 );
 alter table public.tribunal_updates enable row level security;
+drop policy if exists "Tribunal updates visible to owner" on public.tribunal_updates;
 create policy "Tribunal updates visible to owner" on public.tribunal_updates
   for select using (user_id = auth.uid());
+drop policy if exists "Tribunal updates creatable by owner" on public.tribunal_updates;
 create policy "Tribunal updates creatable by owner" on public.tribunal_updates
   for insert with check (user_id = auth.uid());
+drop policy if exists "Tribunal updates updatable by owner" on public.tribunal_updates;
 create policy "Tribunal updates updatable by owner" on public.tribunal_updates
   for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "Tribunal updates deletable by owner" on public.tribunal_updates;
 create policy "Tribunal updates deletable by owner" on public.tribunal_updates
   for delete using (user_id = auth.uid());
 create index if not exists tribunal_updates_user_idx on public.tribunal_updates(user_id);
