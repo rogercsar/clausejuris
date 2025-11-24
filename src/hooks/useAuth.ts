@@ -120,7 +120,7 @@ export function useRegister() {
 }
 
 export function useMe() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
 
   return useQuery({
     queryKey: ['me'],
